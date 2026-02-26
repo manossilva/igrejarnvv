@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financeiro - Igreja</title>
+    
+    <!-- Tailwind CSS para estilização rápida -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js para o gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Identidade Visual Estilo Apple */
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-card: #ffffff;
+            --apple-text: #1d1d1f;
+            --apple-text-secondary: #86868b;
+            --apple-black: #000000;
+            --apple-red: #ff3b30; /* Vermelho Apple para valores negativos */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--apple-bg);
+            color: var(--apple-text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .apple-card {
+            background-color: var(--apple-card);
+            border-radius: 22px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03), 0 1px 4px rgba(0, 0, 0, 0.02);
+            padding: 24px;
+            transition: transform 0.2s ease;
+        }
+
+        .apple-card-small {
+            background-color: var(--apple-card);
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            padding: 16px;
+        }
+
+        /* Esconder scrollbar na lista de meses */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .tab-btn {
+            white-space: nowrap;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tab-active {
+            background-color: var(--apple-black);
+            color: #ffffff;
+        }
+
+        .tab-inactive {
+            background-color: #e8e8ed;
+            color: var(--apple-text);
+        }
+
+        .tab-inactive:hover {
+            background-color: #d1d1d6;
+        }
+
+        .divider {
+            height: 24px;
+            width: 2px;
+            background-color: #d1d1d6;
+            margin: 0 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="pb-12">
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
+        
+        <!-- Cabeçalho -->
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight">Caixa da Igreja</h1>
+                <p class="text-[#86868b] mt-1 text-sm font-medium">Relatório Financeiro Consolidado</p>
+            </div>
+            <div class="bg-black p-3 rounded-full text-white">
+                <i data-lucide="church"></i>
+            </div>
+        </header>
+
+        <!-- Cards Globais (Reserva e Caixa Atual) -->
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="apple-card flex flex-col justify-center">
+                <div class="flex items-center gap-2 mb-2 text-[#86868b]">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    <span class="font-semibold text-sm uppercase tracking-wider">Fundo de Reserva</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold" id="val-reserva">R$ 0,00</h2>
+            </div>
+            
+            <div class="apple-card flex flex-col justify-center">
+                <div class="flex items-center gap-2 mb-2 text-[#86868b]">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                    <span class="font-semibold text-sm uppercase tracking-wider">Em Caixa (Atual)</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold" id="val-caixa">R$ 0,00</h2>
+            </div>
+        </div>
+
+        <!-- Seletor de Meses e Períodos -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-[#86868b] mb-3 uppercase tracking-wider">Filtrar Período</h3>
+            <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 items-center" id="month-tabs">
+                <!-- Abas geradas via JavaScript -->
+            </div>
+        </div>
+
+        <!-- Conteúdo do Mês/Período Selecionado -->
+        <div id="month-content" class="animate-fade-in">
+            
+            <div class="flex items-center gap-2 mb-4">
+                <h2 class="text-xl font-bold" id="titulo-periodo">Resumo do Período</h2>
+            </div>
+
+            <!-- Resumo Entradas/Saídas do Mês -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="apple-card-small border-l-4 border-black">
+                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Entradas (No período)</p>
+                    <p class="text-xl font-bold text-black" id="mes-entradas">R$ 0,00</p>
+                </div>
+                <div class="apple-card-small border-l-4 border-[#86868b]">
+                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Saídas (No período)</p>
+                    <p class="text-xl font-bold text-black" id="mes-saidas">R$ 0,00</p>
+                </div>
+                <div class="apple-card-small bg-black text-white transition-colors duration-300" id="card-saldo">
+                    <p class="text-xs text-gray-300 font-semibold uppercase mb-1" id="label-saldo">Resultado do Período</p>
+                    <p class="text-xl font-bold" id="mes-saldo">R$ 0,00</p>
+                </div>
+            </div>
+
+            <!-- Gráfico e Detalhamento -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Gráfico -->
+                <div class="apple-card flex flex-col items-center justify-center">
+                    <h3 class="w-full text-left font-bold text-lg mb-6">Onde foi gasto?</h3>
+                    <div class="relative w-full max-w-[250px] aspect-square">
+                        <canvas id="expensesChart"></canvas>
+                        
+                        <!-- Mensagem quando não há dados -->
+                        <div id="no-data-msg" class="absolute inset-0 flex items-center justify-center hidden">
+                            <p class="text-[#86868b] text-sm text-center">Sem dados de saída<br>neste período.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Categorias -->
+                <div class="apple-card">
+                    <h3 class="font-bold text-lg mb-4">Detalhamento de Saídas</h3>
+                    <div id="categories-list" class="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                        <!-- Lista gerada via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Inicializa os ícones
+        lucide.createIcons();
+
+        // Formatação de Moeda Brasileira
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        };
+
+        // --- BANCO DE DADOS DA IGREJA ---
+        const churchData = {
+            reservaInicialBase: 1636.00, // Valor base no final do mês 08
+            caixaInicialBase: 2091.39,   // Valor base no final do mês 08
+            
+            // Meses ordenados do mais recente para o mais antigo (para exibição UI)
+            meses: [
+                {
+                    id: 'mes-2',
+                    nome: "Fevereiro/2026",
+                    entradas: 2363.95,
+                    saidas: 1665.40,
+                    detalhesSaidas: [
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 725.51, icon: "home" },
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 292.00, icon: "heart" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 289.00, icon: "droplet" },
+                        { categoria: "Infra & Equipamentos", valor: 288.90, icon: "hammer" },
+                        { categoria: "Alimentação & Eventos", valor: 69.99, icon: "coffee" }
+                    ]
+                },
+                {
+                    id: 'mes-1',
+                    nome: "Janeiro/2026",
+                    entradas: 3220.86,
+                    saidas: 3920.63,
+                    detalhesSaidas: [
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 2430.00, icon: "heart" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 716.53, icon: "home" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 342.22, icon: "droplet" },
+                        { categoria: "Alimentação & Eventos", valor: 249.98, icon: "coffee" },
+                        { categoria: "Infra & Equipamentos", valor: 181.90, icon: "hammer" }
+                    ]
+                },
+                {
+                    id: 'mes-12',
+                    nome: "Dezembro (Mês 12)",
+                    entradas: 3413.65,
+                    saidas: 5879.71,
+                    detalhesSaidas: [
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 3939.00, icon: "heart" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 885.95, icon: "home" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 651.35, icon: "droplet" },
+                        { categoria: "Infra & Equipamentos", valor: 235.90, icon: "hammer" },
+                        { categoria: "Alimentação & Eventos", valor: 167.51, icon: "coffee" }
+                    ]
+                },
+                {
+                    id: 'mes-11',
+                    nome: "Novembro (Mês 11)",
+                    entradas: 5729.67,
+                    saidas: 3197.01,
+                    detalhesSaidas: [
+                        { categoria: "Alimentação & Eventos", valor: 864.43, icon: "coffee" },
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 672.00, icon: "heart" },
+                        { categoria: "Infra & Equipamentos", valor: 658.69, icon: "hammer" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 548.10, icon: "home" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 453.79, icon: "droplet" }
+                    ]
+                },
+                {
+                    id: 'mes-10',
+                    nome: "Outubro (Mês 10)",
+                    entradas: 4552.16,
+                    saidas: 5916.41,
+                    detalhesSaidas: [
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 3925.30, icon: "heart" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 731.13, icon: "home" },
+                        { categoria: "Alimentação & Eventos", valor: 564.74, icon: "coffee" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 513.87, icon: "droplet" },
+                        { categoria: "Infra & Equipamentos", valor: 181.37, icon: "hammer" }
+                    ]
+                },
+                {
+                    id: 'mes-9',
+                    nome: "Setembro (Mês 9)",
+                    entradas: 2626.96,
+                    saidas: 4275.00,
+                    detalhesSaidas: [
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 2353.99, icon: "heart" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 757.24, icon: "home" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 503.60, icon: "droplet" },
+                        { categoria: "Infra & Equipamentos", valor: 344.30, icon: "hammer" },
+                        { categoria: "Alimentação & Eventos", valor: 315.87, icon: "coffee" }
+                    ]
+                },
+                {
+                    id: 'mes-8',
+                    nome: "Agosto (Mês 8)",
+                    entradas: 7336.15,
+                    saidas: 4070.55,
+                    detalhesSaidas: [
+                        { categoria: "Pastoral, Missões & Ofertas", valor: 1234.01, icon: "heart" },
+                        { categoria: "Alimentação & Eventos", valor: 853.08, icon: "coffee" },
+                        { categoria: "Infra & Equipamentos", valor: 723.78, icon: "hammer" },
+                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 715.03, icon: "home" },
+                        { categoria: "Limpeza, Água & Diversos", valor: 544.65, icon: "droplet" }
+                    ]
+                }
+            ]
+        };
+
+        let currentChart = null;
+        let allViewOptions = [];
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            calcularSaldosGlobais();
+            generateViewOptions();
+            renderTabs();
+            // Inicia mostrando o mês mais recente (Fev/2026)
+            selectTab('mes-2');
+        });
+
+        // Função para calcular os saldos reais descontando da reserva
+        function calcularSaldosGlobais() {
+            let reservaAtual = churchData.reservaInicialBase;
+            let caixaAtual = churchData.caixaInicialBase;
+
+            // Meses em ordem cronológica a partir do mês 9 (o mês 8 já é a base inicial)
+            const mesesCronologicos = ['mes-9', 'mes-10', 'mes-11', 'mes-12', 'mes-1', 'mes-2'];
+
+            mesesCronologicos.forEach(idMes => {
+                const mes = churchData.meses.find(m => m.id === idMes);
+                if (mes) {
+                    const saldo = mes.entradas - mes.saidas;
+                    
+                    if (saldo < 0) {
+                        const deficit = Math.abs(saldo);
+                        // Se a reserva cobre o déficit total ou parcial
+                        if (reservaAtual >= deficit) {
+                            reservaAtual -= deficit;
+                        } else {
+                            const faltante = deficit - reservaAtual;
+                            reservaAtual = 0; // Reserva zera
+                            caixaAtual -= faltante; // Tira o resto do caixa
+                        }
+                    } else {
+                        // Saldo positivo entra no caixa
+                        caixaAtual += saldo;
+                    }
+                }
+            });
+
+            // Atualiza UI
+            document.getElementById('val-reserva').innerText = formatCurrency(reservaAtual);
+            
+            const valCaixaEl = document.getElementById('val-caixa');
+            valCaixaEl.innerText = formatCurrency(caixaAtual);
+            
+            if (caixaAtual < 0) {
+                valCaixaEl.classList.add('text-[#ff3b30]');
+            } else {
+                valCaixaEl.classList.remove('text-[#ff3b30]');
+            }
+        }
+
+        // Gera os dados agrupados (2, 3, 4, 5, 6 meses)
+        function generateViewOptions() {
+            allViewOptions = [];
+
+            // 1. Gera Agrupamentos (pegando os N primeiros meses da lista - ou seja, de trás pra frente cronologicamente)
+            const groupedCounts = [2, 3, 4, 5, 6];
+            groupedCounts.forEach(count => {
+                const mesesAgrupar = churchData.meses.slice(0, count);
+                
+                let totalEntradas = 0;
+                let totalSaidas = 0;
+                let categoriasMap = {};
+
+                mesesAgrupar.forEach(m => {
+                    totalEntradas += m.entradas;
+                    totalSaidas += m.saidas;
+                    
+                    m.detalhesSaidas.forEach(d => {
+                        if (!categoriasMap[d.categoria]) {
+                            categoriasMap[d.categoria] = { valor: 0, icon: d.icon };
+                        }
+                        categoriasMap[d.categoria].valor += d.valor;
+                    });
+                });
+
+                // Converte Map para Array e ordena por valor
+                let detalhesAgrupados = Object.keys(categoriasMap).map(k => ({
+                    categoria: k,
+                    valor: categoriasMap[k].valor,
+                    icon: categoriasMap[k].icon
+                }));
+                detalhesAgrupados.sort((a, b) => b.valor - a.valor);
+
+                allViewOptions.push({
+                    id: `grupo-${count}`,
+                    nome: `Últimos ${count} meses`,
+                    titulo: `Resumo Consolidado: Últimos ${count} meses`,
+                    entradas: totalEntradas,
+                    saidas: totalSaidas,
+                    detalhesSaidas: detalhesAgrupados,
+                    isGroup: true
+                });
+            });
+
+            // 2. Adiciona os Meses Individuais
+            churchData.meses.forEach(m => {
+                allViewOptions.push({
+                    ...m,
+                    titulo: `Resumo: ${m.nome}`,
+                    isGroup: false
+                });
+            });
+        }
+
+        // Renderiza a barra de navegação
+        function renderTabs() {
+            const tabsContainer = document.getElementById('month-tabs');
+            tabsContainer.innerHTML = '';
+
+            let addedDivider = false;
+
+            allViewOptions.forEach(tabData => {
+                // Adiciona um divisor visual entre agrupados e individuais
+                if (!tabData.isGroup && !addedDivider) {
+                    const divider = document.createElement('div');
+                    divider.className = 'divider';
+                    tabsContainer.appendChild(divider);
+                    addedDivider = true;
+                }
+
+                const btn = document.createElement('div');
+                btn.className = `tab-btn tab-inactive`;
+                btn.innerText = tabData.nome;
+                btn.id = `tab-btn-${tabData.id}`;
+                btn.onclick = () => selectTab(tabData.id);
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        // Função ao clicar em uma aba
+        function selectTab(id) {
+            // Atualiza botões (UI)
+            allViewOptions.forEach(tab => {
+                const btn = document.getElementById(`tab-btn-${tab.id}`);
+                if (btn) {
+                    if (tab.id === id) {
+                        btn.classList.remove('tab-inactive');
+                        btn.classList.add('tab-active');
+                    } else {
+                        btn.classList.remove('tab-active');
+                        btn.classList.add('tab-inactive');
+                    }
+                }
+            });
+
+            // Pega os dados selecionados
+            const activeData = allViewOptions.find(t => t.id === id);
+            
+            // Atualiza Textos
+            document.getElementById('titulo-periodo').innerText = activeData.titulo;
+            document.getElementById('mes-entradas').innerText = formatCurrency(activeData.entradas);
+            document.getElementById('mes-saidas').innerText = formatCurrency(activeData.saidas);
+            
+            // Cálculo estrito: O que entrou menos o que saiu no período (começa do zero)
+            const saldo = activeData.entradas - activeData.saidas;
+            const saldoEl = document.getElementById('mes-saldo');
+            const cardSaldo = document.getElementById('card-saldo');
+            
+            saldoEl.innerText = formatCurrency(saldo);
+            
+            // Muda a cor caso seja saldo negativo
+            if (saldo < 0) {
+                saldoEl.classList.remove('text-white');
+                saldoEl.classList.add('text-[#ff453a]'); // Vermelho estilo Apple Escuro
+            } else {
+                saldoEl.classList.add('text-white');
+                saldoEl.classList.remove('text-[#ff453a]');
+            }
+            
+            // Atualiza Gráfico e Lista
+            renderChartAndList(activeData.detalhesSaidas, activeData.saidas);
+        }
+
+        function renderChartAndList(detalhes, totalSaidas) {
+            const listContainer = document.getElementById('categories-list');
+            listContainer.innerHTML = '';
+            
+            const noDataMsg = document.getElementById('no-data-msg');
+            const canvasElement = document.getElementById('expensesChart');
+
+            // Destroi gráfico anterior
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            if (!detalhes || detalhes.length === 0 || totalSaidas === 0) {
+                noDataMsg.classList.remove('hidden');
+                canvasElement.style.display = 'none';
+                listContainer.innerHTML = '<p class="text-[#86868b] text-sm text-center mt-6">Nenhuma movimentação registrada neste período.</p>';
+                return;
+            }
+
+            noDataMsg.classList.add('hidden');
+            canvasElement.style.display = 'block';
+
+            // Dados pro Gráfico
+            const labels = detalhes.map(d => d.categoria);
+            const dataValues = detalhes.map(d => d.valor);
+            
+            // Paleta Monocromática estilo Apple
+            const bgColors = [
+                '#000000', // Preto
+                '#333333', // Cinza escuro
+                '#666666', // Cinza médio
+                '#999999', // Cinza claro
+                '#CCCCCC'  // Cinza muito claro
+            ];
+
+            // Renderiza Gráfico
+            const ctx = canvasElement.getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed !== null) {
+                                        label += formatCurrency(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            },
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: false
+                        }
+                    }
+                }
+            });
+
+            // Renderiza Lista lateral
+            detalhes.forEach((item, index) => {
+                const percent = totalSaidas > 0 ? ((item.valor / totalSaidas) * 100).toFixed(1) : 0;
+                const dotColor = bgColors[index % bgColors.length];
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "flex items-center justify-between p-3 rounded-xl bg-[#f5f5f7]";
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white min-w-[32px]" style="background-color: ${dotColor}">
+                            <i data-lucide="${item.icon}" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-sm text-black leading-tight">${item.categoria}</p>
+                            <p class="text-xs text-[#86868b]">${percent}% do total</p>
+                        </div>
+                    </div>
+                    <div class="font-bold text-sm text-right min-w-[80px]">
+                        ${formatCurrency(item.valor)}
+                    </div>
+                `;
+                listContainer.appendChild(itemDiv);
+            });
+
+            // Atualiza ícones gerados
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
