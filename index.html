@@ -5,17 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financeiro - Igreja</title>
     
-    <!-- Tailwind CSS para estilização rápida -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Chart.js para o gráfico -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Ícones Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- SheetJS para ler Excel/CSV -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- PDF.js para extração de texto de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
     <style>
-        /* Identidade Visual Estilo Apple */
         :root {
             --apple-bg: #f5f5f7;
             --apple-card: #ffffff;
@@ -38,7 +43,6 @@
             border-radius: 22px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03), 0 1px 4px rgba(0, 0, 0, 0.02);
             padding: 24px;
-            transition: transform 0.2s ease;
         }
 
         .apple-card-small {
@@ -48,55 +52,60 @@
             padding: 16px;
         }
 
-        /* Esconder scrollbar na lista de meses */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* Melhoria no scroll lateral dos meses */
+        .month-scroll-container::-webkit-scrollbar {
+            height: 4px;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .month-scroll-container::-webkit-scrollbar-thumb {
+            background: #d1d1d6;
+            border-radius: 10px;
+        }
+        .month-scroll-container {
+            scrollbar-width: thin;
+            scrollbar-color: #d1d1d6 transparent;
         }
 
         .tab-btn {
             white-space: nowrap;
-            padding: 8px 20px;
+            padding: 10px 22px;
             border-radius: 20px;
             font-weight: 600;
             font-size: 14px;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
+            user-select: none;
         }
 
-        .tab-active {
-            background-color: var(--apple-black);
+        .tab-active { 
+            background-color: var(--apple-black); 
             color: #ffffff;
+            transform: scale(1.05);
+        }
+        .tab-inactive { 
+            background-color: #e8e8ed; 
+            color: var(--apple-text); 
+        }
+        .tab-inactive:hover { 
+            background-color: #d1d1d6; 
         }
 
-        .tab-inactive {
-            background-color: #e8e8ed;
-            color: var(--apple-text);
-        }
-
-        .tab-inactive:hover {
-            background-color: #d1d1d6;
-        }
-
-        .divider {
-            height: 24px;
-            width: 2px;
-            background-color: #d1d1d6;
-            margin: 0 4px;
-            border-radius: 2px;
-        }
-
-        /* Animação suave para painéis */
-        .transition-height {
-            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-            overflow: hidden;
+        .divider { height: 24px; width: 2px; background-color: #d1d1d6; margin: 0 8px; border-radius: 2px; flex-shrink: 0; }
+        
+        #loading-overlay {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
         }
     </style>
 </head>
 <body class="pb-12">
+
+    <!-- Overlay de Carregamento -->
+    <div id="loading-overlay" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-black mb-4"></div>
+            <p class="font-semibold text-sm">Processando documento...</p>
+        </div>
+    </div>
 
     <div class="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
         
@@ -108,8 +117,8 @@
             </div>
             <div class="flex gap-3">
                 <button onclick="toggleImport()" class="bg-[#e8e8ed] hover:bg-[#d1d1d6] text-black px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 transition-colors">
-                    <i data-lucide="upload" class="w-4 h-4"></i>
-                    Importar Dados
+                    <i data-lucide="file-up" class="w-4 h-4"></i>
+                    Subir Arquivo
                 </button>
                 <div class="bg-black p-3 rounded-full text-white hidden sm:flex">
                     <i data-lucide="church" class="w-5 h-5"></i>
@@ -117,20 +126,26 @@
             </div>
         </header>
 
-        <!-- Painel de Importação de Texto (Oculto por Padrão) -->
-        <div id="import-panel" class="apple-card mb-8 hidden opacity-0 transition-opacity duration-300 border-2 border-dashed border-gray-300">
+        <!-- Painel de Importação Avançado -->
+        <div id="import-panel" class="apple-card mb-8 hidden border-2 border-dashed border-gray-300">
             <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
-                <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i> Importar Múltiplos Meses
+                <i data-lucide="table" class="w-5 h-5 text-gray-500"></i> Importar Documento (PDF/XLSX/CSV)
             </h3>
-            <p class="text-sm text-gray-500 mb-4">Cole o texto com as Entradas e Saídas (pode ser de vários meses juntos). O sistema vai separar por mês e evitar transações duplicadas automaticamente.</p>
-            <textarea id="import-text" class="w-full p-4 border rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black" rows="8" placeholder="Exemplo:&#10;SAÍDAS DE JANEIRO:&#10;05/01 - R$ 69.90 - Mensalidade da Rádio&#10;&#10;ENTRADAS DE JANEIRO:&#10;04/01 - R$ 151.67 - Ofertas do Domingo&#10;&#10;SAÍDAS DE FEVEREIRO:&#10;10/02 - R$ 350.00 - Aluguel da Igreja"></textarea>
+            <p class="text-sm text-gray-500 mb-4">Selecione seu arquivo. O sistema entende tabelas e textos automaticamente.</p>
+            
+            <div class="flex flex-col gap-4">
+                <input type="file" id="xlsx-file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-black file:text-white hover:file:bg-gray-800 cursor-pointer" accept=".xlsx, .xls, .csv, .pdf">
+                
+                <div class="text-xs text-gray-400 italic">Dica: Você pode subir o PDF da tabela de resumo que o sistema lerá as Entradas e Saídas.</div>
+            </div>
+
             <div class="mt-4 flex justify-end gap-3">
-                <button onclick="toggleImport()" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
-                <button onclick="processarTextoUpload()" class="bg-black text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors">Processar Texto</button>
+                <button onclick="toggleImport()" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+                <button onclick="processarTudo()" class="bg-black text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-gray-800">Processar Agora</button>
             </div>
         </div>
 
-        <!-- Cards Globais (Reserva e Caixa Atual) -->
+        <!-- Cards Globais -->
         <div class="grid grid-cols-2 gap-4 mb-8">
             <div class="apple-card flex flex-col justify-center">
                 <div class="flex items-center gap-2 mb-2 text-[#86868b]">
@@ -149,763 +164,380 @@
             </div>
         </div>
 
-        <!-- Seletor de Meses e Períodos -->
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold text-[#86868b] mb-3 uppercase tracking-wider">Filtrar Período</h3>
-            <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 items-center" id="month-tabs">
-                <!-- Abas geradas via JavaScript -->
-            </div>
+        <!-- Seletor de Período -->
+        <div class="mb-6 overflow-hidden">
+            <div class="flex gap-3 overflow-x-auto month-scroll-container pb-4 items-center" id="month-tabs"></div>
         </div>
 
-        <!-- Conteúdo do Mês/Período Selecionado -->
-        <div id="month-content" class="animate-fade-in">
-            
+        <!-- Conteúdo -->
+        <div id="month-content">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold" id="titulo-periodo">Resumo do Período</h2>
+                <h2 class="text-xl font-bold" id="titulo-periodo">Resumo</h2>
             </div>
 
-            <!-- Resumo Entradas/Saídas do Mês -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="apple-card-small border-l-4 border-black">
-                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Entradas (No período)</p>
+                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Entradas</p>
                     <p class="text-xl font-bold text-black" id="mes-entradas">R$ 0,00</p>
                 </div>
                 <div class="apple-card-small border-l-4 border-[#86868b]">
-                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Saídas (No período)</p>
+                    <p class="text-xs text-[#86868b] font-semibold uppercase mb-1">Saídas</p>
                     <p class="text-xl font-bold text-black" id="mes-saidas">R$ 0,00</p>
                 </div>
-                <div class="apple-card-small bg-black text-white transition-colors duration-300" id="card-saldo">
-                    <p class="text-xs text-gray-300 font-semibold uppercase mb-1" id="label-saldo">Resultado do Período</p>
+                <div class="apple-card-small bg-black text-white" id="card-saldo">
+                    <p class="text-xs text-gray-300 font-semibold uppercase mb-1">Resultado</p>
                     <p class="text-xl font-bold" id="mes-saldo">R$ 0,00</p>
                 </div>
             </div>
 
-            <!-- Gráfico e Detalhamento -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <!-- Gráfico -->
                 <div class="apple-card flex flex-col items-center justify-center">
-                    <h3 class="w-full text-left font-bold text-lg mb-6">Onde foi gasto?</h3>
+                    <h3 class="w-full text-left font-bold text-lg mb-6">Gasto por Categoria</h3>
                     <div class="relative w-full max-w-[250px] aspect-square">
                         <canvas id="expensesChart"></canvas>
-                        
-                        <!-- Mensagem quando não há dados -->
                         <div id="no-data-msg" class="absolute inset-0 flex items-center justify-center hidden">
-                            <p class="text-[#86868b] text-sm text-center">Sem dados de saída<br>neste período.</p>
+                            <p class="text-[#86868b] text-sm text-center">Sem dados de saída.</p>
                         </div>
                     </div>
                 </div>
-
-                <!-- Lista de Categorias -->
                 <div class="apple-card">
-                    <h3 class="font-bold text-lg mb-4">Categorias</h3>
-                    <div id="categories-list" class="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                        <!-- Lista gerada via JS -->
-                    </div>
+                    <h3 class="font-bold text-lg mb-4">Detalhamento</h3>
+                    <div id="categories-list" class="space-y-4 max-h-[300px] overflow-y-auto pr-2"></div>
                 </div>
             </div>
 
-            <!-- Movimentações do Dia a Dia -->
             <div id="dia-a-dia-container" class="apple-card mb-6 hidden">
-                <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-                    <i data-lucide="list" class="w-5 h-5 text-gray-500"></i> Movimentações (Dia a Dia)
-                </h3>
-                <div id="lista-transacoes" class="space-y-1">
-                    <!-- Gerado via JS -->
-                </div>
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="list"></i> Movimentações</h3>
+                <div id="lista-transacoes" class="space-y-1"></div>
             </div>
-
-            <!-- Anexo de Extrato -->
-            <div id="extrato-container" class="apple-card mb-6 hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg flex items-center gap-2">
-                        <i data-lucide="paperclip" class="w-5 h-5 text-gray-500"></i> Extrato Bancário
-                    </h3>
-                    <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-black px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Anexar
-                        <input type="file" id="extrato-upload" class="hidden" accept="image/*,.pdf" onchange="uploadExtrato(event)">
-                    </label>
-                </div>
-                <div id="extrato-preview" class="mt-4 hidden w-full border border-gray-200 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center min-h-[100px] p-4">
-                    <!-- Imagem ou PDF gerado via JS -->
-                </div>
-            </div>
-
         </div>
     </div>
 
-    <!-- Modal de Mensagem -->
-    <div id="msg-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl transform scale-95 transition-transform duration-300" id="msg-modal-content">
-            <h3 class="text-xl font-bold mb-2" id="msg-title">Aviso</h3>
-            <p class="text-gray-600 mb-6" id="msg-text">Mensagem...</p>
-            <button onclick="closeMsgModal()" class="w-full bg-black text-white font-bold py-3 rounded-xl">Entendi</button>
+    <!-- Modal Avisos -->
+    <div id="msg-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 class="text-xl font-bold mb-2" id="msg-title"></h3>
+            <p class="text-gray-600 mb-6" id="msg-text"></p>
+            <button onclick="closeMsgModal()" class="w-full bg-black text-white font-bold py-3 rounded-xl">Fechar</button>
         </div>
     </div>
 
     <script>
-        // Inicializa os ícones
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
         lucide.createIcons();
 
-        // Formatação de Moeda Brasileira
-        const formatCurrency = (value) => {
-            return new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-            }).format(value);
-        };
+        const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-        // --- BANCO DE DADOS DA IGREJA ---
         const churchData = {
-            reservaInicialBase: 1636.00, // Valor base no final do mês 08
-            caixaInicialBase: 2091.39,   // Valor base no final do mês 08
-            
-            // Meses ordenados do mais recente para o mais antigo (para exibição UI)
+            reservaInicialBase: 1636.00,
+            caixaInicialBase: 2091.39,
             meses: [
-                {
-                    id: 'mes-2',
-                    nome: "Fevereiro",
-                    entradas: 2363.95,
-                    saidas: 1665.40,
-                    transacoes: [],
-                    extrato: null,
-                    detalhesSaidas: [
-                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 725.51, icon: "home" },
-                        { categoria: "Pastoral, Missões & Ofertas", valor: 292.00, icon: "heart" },
-                        { categoria: "Limpeza, Água & Diversos", valor: 289.00, icon: "droplet" },
-                        { categoria: "Infra & Equipamentos", valor: 288.90, icon: "hammer" },
-                        { categoria: "Alimentação & Eventos", valor: 69.99, icon: "coffee" }
-                    ]
-                },
-                {
-                    id: 'mes-1',
-                    nome: "Janeiro",
-                    entradas: 3220.86,
-                    saidas: 3920.63,
-                    transacoes: [],
-                    extrato: null,
-                    detalhesSaidas: [
-                        { categoria: "Pastoral, Missões & Ofertas", valor: 2430.00, icon: "heart" },
-                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 716.53, icon: "home" },
-                        { categoria: "Limpeza, Água & Diversos", valor: 342.22, icon: "droplet" },
-                        { categoria: "Alimentação & Eventos", valor: 249.98, icon: "coffee" },
-                        { categoria: "Infra & Equipamentos", valor: 181.90, icon: "hammer" }
-                    ]
-                },
-                {
-                    id: 'mes-12',
-                    nome: "Dezembro",
-                    entradas: 3413.65,
-                    saidas: 5879.71,
-                    transacoes: [],
-                    extrato: null,
-                    detalhesSaidas: [
-                        { categoria: "Pastoral, Missões & Ofertas", valor: 3939.00, icon: "heart" },
-                        { categoria: "Custos Fixos (Aluguel, Rádio...)", valor: 885.95, icon: "home" },
-                        { categoria: "Limpeza, Água & Diversos", valor: 651.35, icon: "droplet" },
-                        { categoria: "Infra & Equipamentos", valor: 235.90, icon: "hammer" },
-                        { categoria: "Alimentação & Eventos", valor: 167.51, icon: "coffee" }
-                    ]
-                }
+                { id: 'mes-2', nome: "Fevereiro/26", entradas: 2363.95, saidas: 1665.40, detalhesSaidas: [{ categoria: "Geral", valor: 1665.40, icon: "circle" }], transacoes: [] },
+                { id: 'mes-1', nome: "Janeiro/26", entradas: 3220.86, saidas: 3820.63, detalhesSaidas: [{ categoria: "Geral", valor: 3820.63, icon: "circle" }], transacoes: [] },
+                { id: 'mes-12', nome: "Dezembro/25", entradas: 3413.65, saidas: 5879.71, detalhesSaidas: [{ categoria: "Geral", valor: 5879.71, icon: "circle" }], transacoes: [] },
+                { id: 'mes-11', nome: "Novembro/25", entradas: 5729.67, saidas: 3197.01, detalhesSaidas: [{ categoria: "Geral", valor: 3197.01, icon: "circle" }], transacoes: [] },
+                { id: 'mes-10', nome: "Outubro/25", entradas: 4552.16, saidas: 5915.41, detalhesSaidas: [{ categoria: "Geral", valor: 5915.41, icon: "circle" }], transacoes: [] },
+                { id: 'mes-9', nome: "Setembro/25", entradas: 2626.96, saidas: 4274.90, detalhesSaidas: [{ categoria: "Geral", valor: 4274.90, icon: "circle" }], transacoes: [] }
             ]
         };
 
         let currentChart = null;
         let allViewOptions = [];
 
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', () => {
-            calcularSaldosGlobais();
-            generateViewOptions();
-            renderTabs();
-            // Inicia mostrando o mês mais recente
-            if(churchData.meses.length > 0) {
-                selectTab(churchData.meses[0].id);
-            }
-        });
-
-        // Função para calcular os saldos reais descontando da reserva
         function calcularSaldosGlobais() {
-            let reservaAtual = churchData.reservaInicialBase;
-            let caixaAtual = churchData.caixaInicialBase;
-
-            // Ordenar meses do mais antigo pro mais novo para cálculo progressivo
-            // Ordenação baseada no ID assumindo 'mes-X'
-            let mesesCalc = [...churchData.meses].sort((a,b) => {
-                let idA = parseInt(a.id.replace('mes-', ''));
-                let idB = parseInt(b.id.replace('mes-', ''));
-                // Gambiarra simples para ajustar o ano: assumindo que meses 8,9,10,11,12 vêm antes de 1, 2
-                if(idA > 7 && idB < 7) return -1;
-                if(idB > 7 && idA < 7) return 1;
-                return idA - idB;
+            let reserva = churchData.reservaInicialBase;
+            let caixa = churchData.caixaInicialBase;
+            
+            // Ordem cronológica manual robusta
+            const mesesOrdenados = [...churchData.meses].sort((a, b) => {
+                let valA = parseInt(a.id.replace('mes-', ''));
+                let valB = parseInt(b.id.replace('mes-', ''));
+                let scoreA = valA + (valA < 7 ? 12 : 0);
+                let scoreB = valB + (valB < 7 ? 12 : 0);
+                return scoreA - scoreB;
+            });
+            
+            mesesOrdenados.forEach(m => {
+                let saldo = m.entradas - m.saidas;
+                if(saldo < 0) {
+                    let deficit = Math.abs(saldo);
+                    if(reserva >= deficit) reserva -= deficit;
+                    else { caixa -= (deficit - reserva); reserva = 0; }
+                } else caixa += saldo;
             });
 
-            mesesCalc.forEach(mes => {
-                const saldo = mes.entradas - mes.saidas;
-                
-                if (saldo < 0) {
-                    const deficit = Math.abs(saldo);
-                    if (reservaAtual >= deficit) {
-                        reservaAtual -= deficit;
-                    } else {
-                        const faltante = deficit - reservaAtual;
-                        reservaAtual = 0; 
-                        caixaAtual -= faltante;
-                    }
-                } else {
-                    caixaAtual += saldo;
-                }
-            });
-
-            // Atualiza UI
-            document.getElementById('val-reserva').innerText = formatCurrency(reservaAtual);
-            
-            const valCaixaEl = document.getElementById('val-caixa');
-            valCaixaEl.innerText = formatCurrency(caixaAtual);
-            
-            if (caixaAtual < 0) {
-                valCaixaEl.classList.add('text-[#ff3b30]');
-            } else {
-                valCaixaEl.classList.remove('text-[#ff3b30]');
-            }
+            document.getElementById('val-reserva').innerText = formatCurrency(reserva);
+            document.getElementById('val-caixa').innerText = formatCurrency(caixa);
         }
 
-        // Gera os dados agrupados
         function generateViewOptions() {
             allViewOptions = [];
-
-            // Adiciona Meses Individuais
-            churchData.meses.forEach(m => {
-                allViewOptions.push({
-                    ...m,
-                    titulo: `Resumo: ${m.nome}`,
-                    isGroup: false
-                });
-            });
-
-            // Gera Agrupamentos
-            const groupedCounts = [2, 3, 4, 5, 6];
-            groupedCounts.forEach(count => {
-                if(churchData.meses.length < count) return; 
-
-                const mesesAgrupar = churchData.meses.slice(0, count);
-                let totalEntradas = 0;
-                let totalSaidas = 0;
-                let categoriasMap = {};
-
-                mesesAgrupar.forEach(m => {
-                    totalEntradas += m.entradas;
-                    totalSaidas += m.saidas;
-                    
-                    m.detalhesSaidas.forEach(d => {
-                        if (!categoriasMap[d.categoria]) {
-                            categoriasMap[d.categoria] = { valor: 0, icon: d.icon };
-                        }
-                        categoriasMap[d.categoria].valor += d.valor;
-                    });
-                });
-
-                let detalhesAgrupados = Object.keys(categoriasMap).map(k => ({
-                    categoria: k,
-                    valor: categoriasMap[k].valor,
-                    icon: categoriasMap[k].icon
-                }));
-                detalhesAgrupados.sort((a, b) => b.valor - a.valor);
-
-                allViewOptions.push({
-                    id: `grupo-${count}`,
-                    nome: `Últimos ${count} meses`,
-                    titulo: `Resumo Consolidado: Últimos ${count} meses`,
-                    entradas: totalEntradas,
-                    saidas: totalSaidas,
-                    detalhesSaidas: detalhesAgrupados,
-                    isGroup: true
-                });
+            // Individuais
+            churchData.meses.forEach(m => allViewOptions.push({ ...m, isGroup: false, titulo: `Resumo: ${m.nome}` }));
+            // Grupos
+            [2, 3, 6].forEach(count => {
+                if(churchData.meses.length < count) return;
+                let slice = churchData.meses.slice(0, count);
+                let ent = slice.reduce((a, b) => a + b.entradas, 0);
+                let sai = slice.reduce((a, b) => a + b.saidas, 0);
+                allViewOptions.push({ id: `grupo-${count}`, nome: `Últimos ${count} Meses`, entradas: ent, saidas: sai, isGroup: true, titulo: `Consolidado ${count} Meses`, detalhesSaidas: [{ categoria: "Total", valor: sai, icon: "list" }] });
             });
         }
 
-        // Renderiza a barra de navegação
         function renderTabs() {
-            const tabsContainer = document.getElementById('month-tabs');
-            tabsContainer.innerHTML = '';
-
+            const container = document.getElementById('month-tabs');
+            container.innerHTML = '';
             let addedDivider = false;
-
-            allViewOptions.forEach(tabData => {
-                // Adiciona um divisor visual entre individuais e agrupados
-                if (tabData.isGroup && !addedDivider) {
-                    const divider = document.createElement('div');
-                    divider.className = 'divider';
-                    tabsContainer.appendChild(divider);
-                    addedDivider = true;
-                }
-
-                const btn = document.createElement('div');
-                btn.className = `tab-btn tab-inactive`;
-                btn.innerText = tabData.nome;
-                btn.id = `tab-btn-${tabData.id}`;
-                btn.onclick = () => selectTab(tabData.id);
-                tabsContainer.appendChild(btn);
-            });
-        }
-
-        // Função ao clicar em uma aba
-        function selectTab(id) {
+            
             allViewOptions.forEach(tab => {
-                const btn = document.getElementById(`tab-btn-${tab.id}`);
-                if (btn) {
-                    if (tab.id === id) {
-                        btn.classList.remove('tab-inactive');
-                        btn.classList.add('tab-active');
-                    } else {
-                        btn.classList.remove('tab-active');
-                        btn.classList.add('tab-inactive');
-                    }
+                if (tab.isGroup && !addedDivider) { 
+                    const div = document.createElement('div');
+                    div.className = 'divider';
+                    container.appendChild(div);
+                    addedDivider = true; 
                 }
+                
+                let btn = document.createElement('div');
+                btn.className = `tab-btn tab-inactive`;
+                btn.id = `tab-btn-${tab.id}`;
+                btn.innerText = tab.nome;
+                btn.onclick = () => selectTab(tab.id);
+                container.appendChild(btn);
             });
-
-            const activeData = allViewOptions.find(t => t.id === id);
-            
-            if(!activeData) return;
-
-            document.getElementById('titulo-periodo').innerText = activeData.titulo;
-            document.getElementById('mes-entradas').innerText = formatCurrency(activeData.entradas);
-            document.getElementById('mes-saidas').innerText = formatCurrency(activeData.saidas);
-            
-            const saldo = activeData.entradas - activeData.saidas;
-            const saldoEl = document.getElementById('mes-saldo');
-            
-            saldoEl.innerText = formatCurrency(saldo);
-            
-            if (saldo < 0) {
-                saldoEl.classList.remove('text-white');
-                saldoEl.classList.add('text-[#ff453a]'); 
-            } else {
-                saldoEl.classList.add('text-white');
-                saldoEl.classList.remove('text-[#ff453a]');
-            }
-            
-            renderChartAndList(activeData.detalhesSaidas, activeData.saidas);
-            renderDiaADia(activeData);
-            renderExtrato(activeData);
         }
 
-        function renderChartAndList(detalhes, totalSaidas) {
-            const listContainer = document.getElementById('categories-list');
-            listContainer.innerHTML = '';
+        function selectTab(id) {
+            // Reset visual das abas
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('tab-active');
+                b.classList.add('tab-inactive');
+            });
             
-            const noDataMsg = document.getElementById('no-data-msg');
-            const canvasElement = document.getElementById('expensesChart');
-
-            if (currentChart) {
-                currentChart.destroy();
+            const selectedBtn = document.getElementById(`tab-btn-${id}`);
+            if (selectedBtn) {
+                selectedBtn.classList.remove('tab-inactive');
+                selectedBtn.classList.add('tab-active');
+                // Scroll suave para a aba selecionada
+                selectedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
 
-            if (!detalhes || detalhes.length === 0 || totalSaidas === 0) {
-                noDataMsg.classList.remove('hidden');
-                canvasElement.style.display = 'none';
-                listContainer.innerHTML = '<p class="text-[#86868b] text-sm text-center mt-6">Nenhuma movimentação registrada.</p>';
+            let data = allViewOptions.find(t => t.id === id);
+            if(!data) return;
+
+            document.getElementById('titulo-periodo').innerText = data.titulo;
+            document.getElementById('mes-entradas').innerText = formatCurrency(data.entradas);
+            document.getElementById('mes-saidas').innerText = formatCurrency(data.saidas);
+            
+            let saldo = data.entradas - data.saidas;
+            let el = document.getElementById('mes-saldo');
+            el.innerText = (saldo >= 0 ? '+ ' : '') + formatCurrency(saldo);
+            el.className = `text-xl font-bold ${saldo < 0 ? 'text-[#ff3b30]' : 'text-white'}`;
+
+            renderChartAndList(data.detalhesSaidas, data.saidas);
+            renderDiaADia(data);
+        }
+
+        function renderChartAndList(detalhes, total) {
+            let canvas = document.getElementById('expensesChart');
+            let list = document.getElementById('categories-list');
+            list.innerHTML = '';
+            if(currentChart) currentChart.destroy();
+
+            if(!detalhes || detalhes.length === 0 || total === 0) {
+                canvas.style.display = 'none';
+                document.getElementById('no-data-msg').classList.remove('hidden');
                 return;
             }
 
-            noDataMsg.classList.add('hidden');
-            canvasElement.style.display = 'block';
+            canvas.style.display = 'block';
+            document.getElementById('no-data-msg').classList.add('hidden');
 
-            const labels = detalhes.map(d => d.categoria);
-            const dataValues = detalhes.map(d => d.valor);
-            
-            const bgColors = ['#000000', '#333333', '#666666', '#999999', '#CCCCCC'];
-
-            const ctx = canvasElement.getContext('2d');
-            currentChart = new Chart(ctx, {
+            currentChart = new Chart(canvas, {
                 type: 'doughnut',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        data: dataValues,
-                        backgroundColor: bgColors,
-                        borderWidth: 2,
-                        borderColor: '#ffffff',
-                        hoverOffset: 4
-                    }]
+                    labels: detalhes.map(d => d.categoria),
+                    datasets: [{ data: detalhes.map(d => d.valor), backgroundColor: ['#000', '#333', '#666', '#999', '#CCC'], cutout: '70%' }]
                 },
-                options: {
+                options: { 
                     responsive: true,
-                    maintainAspectRatio: true,
-                    cutout: '70%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) { label += ': '; }
-                                    if (context.parsed !== null) {
-                                        label += formatCurrency(context.parsed);
-                                    }
-                                    return label;
-                                }
-                            },
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            padding: 12,
-                            cornerRadius: 8,
-                            displayColors: false
-                        }
-                    }
+                    plugins: { legend: { display: false } } 
                 }
             });
 
-            detalhes.forEach((item, index) => {
-                const percent = totalSaidas > 0 ? ((item.valor / totalSaidas) * 100).toFixed(1) : 0;
-                const dotColor = bgColors[index % bgColors.length];
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = "flex items-center justify-between p-3 rounded-xl bg-[#f5f5f7]";
-                itemDiv.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white min-w-[32px]" style="background-color: ${dotColor}">
-                            <i data-lucide="${item.icon}" class="w-4 h-4"></i>
+            detalhes.forEach(item => {
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-[#f5f5f7]">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white"><i data-lucide="${item.icon || 'circle'}" class="w-4 h-4"></i></div>
+                            <span class="font-semibold text-sm">${item.categoria}</span>
                         </div>
-                        <div>
-                            <p class="font-semibold text-sm text-black leading-tight">${item.categoria}</p>
-                            <p class="text-xs text-[#86868b]">${percent}% do total</p>
-                        </div>
-                    </div>
-                    <div class="font-bold text-sm text-right min-w-[80px]">
-                        ${formatCurrency(item.valor)}
-                    </div>
-                `;
-                listContainer.appendChild(itemDiv);
+                        <span class="font-bold text-sm">${formatCurrency(item.valor)}</span>
+                    </div>`;
             });
-
             lucide.createIcons();
         }
 
-        // --- FUNCIONALIDADES DO IMPORTADOR INTELIGENTE --- //
-
-        function showMessage(title, text) {
-            const modal = document.getElementById('msg-modal');
-            const content = document.getElementById('msg-modal-content');
-            document.getElementById('msg-title').innerText = title;
-            document.getElementById('msg-text').innerText = text;
-            
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('scale-95');
-            }, 10);
-        }
-
-        function closeMsgModal() {
-            const modal = document.getElementById('msg-modal');
-            const content = document.getElementById('msg-modal-content');
-            modal.classList.add('opacity-0');
-            content.classList.add('scale-95');
-            setTimeout(() => { modal.classList.add('hidden'); }, 300);
-        }
-
-        function toggleImport() {
-            const panel = document.getElementById('import-panel');
-            if(panel.classList.contains('hidden')) {
-                panel.classList.remove('hidden');
-                setTimeout(() => panel.classList.remove('opacity-0'), 10);
-            } else {
-                panel.classList.add('opacity-0');
-                setTimeout(() => panel.classList.add('hidden'), 300);
-            }
-        }
-
-        function classificarCategoria(desc) {
-            const d = desc.toLowerCase();
-            if (d.includes('pastor') || d.includes('miss') || d.includes('oferta') || d.includes('dízimo') || d.includes('dizimo') || d.includes('prebenda') || d.includes('banca solid')) return "Pastoral, Missões & Ofertas";
-            if (d.includes('aluguel') || d.includes('rádio') || d.includes('radio') || d.includes('tarifa') || d.includes('internet') || d.includes('banco') || d.includes('vigia')) return "Custos Fixos (Aluguel, Rádio...)";
-            if (d.includes('limpeza') || d.includes('água') || d.includes('agua') || d.includes('higiene') || d.includes('sulgipe') || d.includes('iguá') || d.includes('papel') || d.includes('detergente') || d.includes('copo')) return "Limpeza, Água & Diversos";
-            if (d.includes('lanche') || d.includes('café') || d.includes('cafe') || d.includes('bolo') || d.includes('refrigerante') || d.includes('pão') || d.includes('pães') || d.includes('comida') || d.includes('almoço') || d.includes('mercado') || d.includes('padaria') || d.includes('queijo')) return "Alimentação & Eventos";
-            return "Infra & Equipamentos"; 
-        }
-
-        function processarTextoUpload() {
-            const text = document.getElementById('import-text').value;
-            if(!text.trim()) { showMessage("Erro", "Cole o texto primeiro."); return; }
-
-            let currentMode = null; 
-            let currentMonthNum = null;
-            let currentMonthName = "";
-            let transacoesPorMes = {}; // Agrupador de meses detectados
-
-            const lines = text.split('\n');
-            const monthMap = { 'JANEIRO':1, 'FEVEREIRO':2, 'MARÇO':3, 'ABRIL':4, 'MAIO':5, 'JUNHO':6, 'JULHO':7, 'AGOSTO':8, 'SETEMBRO':9, 'OUTUBRO':10, 'NOVEMBRO':11, 'DEZEMBRO':12 };
-
-            for(let line of lines) {
-                line = line.trim();
-                if(!line) continue;
-
-                let upperLine = line.toUpperCase();
-
-                // 1. Detecta mudança de Sessão/Mês (Ex: SAÍDAS DE FEVEREIRO)
-                if(upperLine.includes("ENTRADA")) {
-                    currentMode = 'entrada';
-                    for(let m in monthMap) { if(upperLine.includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
-                    continue;
-                }
-                if(upperLine.includes("SAÍDA") || upperLine.includes("SAIDA")) {
-                    currentMode = 'saida';
-                    for(let m in monthMap) { if(upperLine.includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
-                    continue;
-                }
-
-                // Corrige possíveis letras O ou o digitadas no lugar de 0 nas datas
-                let cleanedLine = line;
-                if (cleanedLine.match(/^[O|o]\d[\/\.]/)) {
-                    cleanedLine = cleanedLine.replace(/^[O|o]/, '0');
-                }
-
-                // 2. Extrai a transação: Data - R$ Valor - Descricao
-                const regex = /^(\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?)\s*[:-]\s*R\$?\s*([\d.,]+)\s*-\s*(.+)$/i;
-                const match = cleanedLine.match(regex);
-                
-                if(match && currentMode) {
-                    const dataStr = match[1];
-                    let valorStr = match[2];
-                    
-                    // Conversão de moeda (1.500,00 -> 1500.00 / 69.90 -> 69.90)
-                    if (valorStr.includes(',') && valorStr.includes('.')) {
-                        valorStr = valorStr.replace(/\./g, '').replace(',', '.');
-                    } else if (valorStr.includes(',')) {
-                        valorStr = valorStr.replace(',', '.');
-                    } else if (valorStr.includes('.')) {
-                        const parts = valorStr.split('.');
-                        if(parts[1] && parts[1].length === 3) {
-                            valorStr = valorStr.replace('.', ''); // Era formato de milhar sem centavos
-                        }
-                    }
-
-                    const valor = parseFloat(valorStr);
-                    const desc = match[3].trim();
-
-                    // Se não tiver mês pelo cabeçalho, tenta descobrir pela data da linha (ex: 15/02)
-                    let mesDaLinha = currentMonthNum;
-                    if(!mesDaLinha) {
-                        const dateParts = dataStr.split(/[\/\.]/);
-                        if(dateParts.length >= 2) {
-                            mesDaLinha = parseInt(dateParts[1]);
-                            for(let m in monthMap) { if(monthMap[m] === mesDaLinha) currentMonthName = m; }
-                        }
-                    }
-
-                    if(mesDaLinha && !isNaN(valor)) {
-                        if(!transacoesPorMes[mesDaLinha]) {
-                            transacoesPorMes[mesDaLinha] = {
-                                nome: currentMonthName || "Mês " + mesDaLinha,
-                                transacoes: []
-                            };
-                        }
-
-                        transacoesPorMes[mesDaLinha].transacoes.push({
-                            data: dataStr,
-                            valor: valor,
-                            descricao: desc,
-                            tipo: currentMode,
-                            categoria: currentMode === 'saida' ? classificarCategoria(desc) : "Entrada"
-                        });
-                    }
-                }
-            }
-
-            // 3. Processar lotes detectados
-            const mesesDetectados = Object.keys(transacoesPorMes);
-            
-            if(mesesDetectados.length > 0) {
-                let totalLidas = 0;
-                
-                // Integra os dados mês a mês na memória
-                mesesDetectados.forEach(mesId => {
-                    const dadosMes = transacoesPorMes[mesId];
-                    const numLidas = integrarNovosDados(mesId, dadosMes.nome, dadosMes.transacoes);
-                    totalLidas += numLidas;
-                });
-                
-                // Só atualiza a interface uma vez no final para ficar rápido
-                calcularSaldosGlobais();
-                generateViewOptions();
-                renderTabs();
-                
-                // Abre o último mês lido
-                selectTab(`mes-${mesesDetectados[mesesDetectados.length - 1]}`);
-                
-                showMessage("Sucesso!", `Foram importadas ${totalLidas} novas movimentações distribuídas em ${mesesDetectados.length} mes(es). Transações repetidas foram ignoradas.`);
-                document.getElementById('import-text').value = '';
-                toggleImport();
-                
-            } else {
-                showMessage("Atenção", "Não foi possível identificar transações. Verifique se o formato está igual aos que você costuma colar (Ex: 01/01 - R$ 10.00 - Descrição).");
-            }
-        }
-
-        // Adiciona dados na variável da memória e recalcula categorias
-        function integrarNovosDados(mesId, mesName, novasTransacoes) {
-            let mesObj = churchData.meses.find(m => m.id === `mes-${mesId}`);
-            
-            // Cria o mês se ele não existir
-            if(!mesObj) {
-                mesObj = {
-                    id: `mes-${mesId}`,
-                    nome: `${mesName.charAt(0).toUpperCase() + mesName.slice(1).toLowerCase()}`,
-                    entradas: 0,
-                    saidas: 0,
-                    transacoes: [],
-                    extrato: null,
-                    detalhesSaidas: []
-                };
-                churchData.meses.unshift(mesObj); 
-            }
-
-            // Ordenação simplificada para UI
-            churchData.meses.sort((a,b) => {
-                let idA = parseInt(a.id.replace('mes-', ''));
-                let idB = parseInt(b.id.replace('mes-', ''));
-                // Gambiarra simples para ajustar a passagem de ano
-                if(idA > 7 && idB < 7) return 1;
-                if(idB > 7 && idA < 7) return -1;
-                return idB - idA;
-            });
-
-            // Adiciona prevenindo duplicatas exatas
-            let inseridas = 0;
-            novasTransacoes.forEach(nova => {
-                const isDuplicate = mesObj.transacoes.some(existente => 
-                    existente.data === nova.data && 
-                    existente.valor === nova.valor && 
-                    existente.descricao.toLowerCase() === nova.descricao.toLowerCase()
-                );
-                
-                if(!isDuplicate) {
-                    mesObj.transacoes.push(nova);
-                    inseridas++;
-                }
-            });
-            
-            // Recalcula totais do mês baseado apenas na array de transações
-            mesObj.entradas = 0;
-            mesObj.saidas = 0;
-            let catMap = {};
-
-            mesObj.transacoes.forEach(t => {
-                if(t.tipo === 'entrada') mesObj.entradas += t.valor;
-                if(t.tipo === 'saida') {
-                    mesObj.saidas += t.valor;
-                    if(!catMap[t.categoria]) catMap[t.categoria] = 0;
-                    catMap[t.categoria] += t.valor;
-                }
-            });
-
-            const iconMap = {
-                "Pastoral, Missões & Ofertas": "heart",
-                "Custos Fixos (Aluguel, Rádio...)": "home",
-                "Limpeza, Água & Diversos": "droplet",
-                "Alimentação & Eventos": "coffee",
-                "Infra & Equipamentos": "hammer"
-            };
-            
-            mesObj.detalhesSaidas = Object.keys(catMap).map(k => ({
-                categoria: k,
-                valor: catMap[k],
-                icon: iconMap[k] || "circle"
-            }));
-
-            return inseridas; // retorna quantas novas entraram de fato
-        }
-
-        // Renderização do Dia a Dia
-        function renderDiaADia(activeData) {
-            const container = document.getElementById('dia-a-dia-container');
-            const lista = document.getElementById('lista-transacoes');
-            
-            if(activeData.isGroup || !activeData.transacoes || activeData.transacoes.length === 0) {
-                container.classList.add('hidden');
-                return;
-            }
-            
+        function renderDiaADia(data) {
+            let container = document.getElementById('dia-a-dia-container');
+            let list = document.getElementById('lista-transacoes');
+            if(data.isGroup || !data.transacoes || data.transacoes.length === 0) { container.classList.add('hidden'); return; }
             container.classList.remove('hidden');
-            lista.innerHTML = '';
-
-            // Ordenar transações por data (simples)
-            const transacoesOrdenadas = [...activeData.transacoes].sort((a,b) => {
-                const dayA = parseInt(a.data.split(/[\/\.]/)[0]) || 0;
-                const dayB = parseInt(b.data.split(/[\/\.]/)[0]) || 0;
-                return dayA - dayB;
-            });
-
-            transacoesOrdenadas.forEach(t => {
-                const isEntrada = t.tipo === 'entrada';
-                const colorClass = isEntrada ? 'text-[var(--apple-green)]' : 'text-[var(--apple-text)]';
-                const sign = isEntrada ? '+' : '-';
-
-                lista.innerHTML += `
-                    <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded-lg px-2 transition-colors">
-                        <div class="flex gap-4 items-center">
-                            <div class="bg-gray-100 text-gray-500 font-bold text-xs rounded-lg px-2 py-1 w-12 text-center shrink-0">
-                                ${t.data}
-                            </div>
-                            <div>
-                                <p class="font-semibold text-sm text-black">${t.descricao}</p>
-                                ${!isEntrada ? `<p class="text-xs text-[#86868b]">${t.categoria}</p>` : ''}
-                            </div>
+            list.innerHTML = '';
+            data.transacoes.forEach(t => {
+                list.innerHTML += `
+                    <div class="flex justify-between py-3 border-b border-gray-100">
+                        <div class="flex gap-4">
+                            <span class="text-xs font-bold text-gray-400 w-10">${t.data}</span>
+                            <span class="text-sm font-semibold">${t.descricao}</span>
                         </div>
-                        <div class="font-bold text-sm ${colorClass} shrink-0">
-                            ${sign} ${formatCurrency(t.valor)}
-                        </div>
-                    </div>
-                `;
+                        <span class="text-sm font-bold ${t.tipo === 'entrada' ? 'text-green-500' : ''}">${t.tipo === 'entrada' ? '+' : '-'} ${formatCurrency(t.valor)}</span>
+                    </div>`;
             });
         }
 
-        // Upload e Renderização do Extrato Bancário
-        function uploadExtrato(event) {
-            const file = event.target.files[0];
-            if(!file) return;
+        // --- LÓGICA DE IMPORTAÇÃO ---
+        function toggleImport() { document.getElementById('import-panel').classList.toggle('hidden'); }
+        function showMessage(t, m) { document.getElementById('msg-title').innerText = t; document.getElementById('msg-text').innerText = m; document.getElementById('msg-modal').classList.remove('hidden'); }
+        function closeMsgModal() { document.getElementById('msg-modal').classList.add('hidden'); }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const currentTabId = document.querySelector('.tab-active').id.replace('tab-btn-', '');
-                const mesObj = churchData.meses.find(m => m.id === currentTabId);
-                if(mesObj) {
-                    mesObj.extrato = { url: e.target.result, type: file.type };
-                    renderExtrato(mesObj);
-                    showMessage("Pronto!", "Comprovante/Extrato anexado com sucesso neste mês.");
-                }
-            };
-            reader.readAsDataURL(file);
-        }
+        async function processarTudo() {
+            let fileInput = document.getElementById('xlsx-file');
+            let file = fileInput.files[0];
+            if (!file) { showMessage("Aviso", "Por favor, selecione um arquivo."); return; }
 
-        function renderExtrato(mesObj) {
-            const preview = document.getElementById('extrato-preview');
-            const container = document.getElementById('extrato-container');
-            
-            // Oculta área de extrato se for visão agrupada
-            if(!mesObj || mesObj.isGroup) {
-                container.classList.add('hidden');
-                return;
-            }
-            
-            container.classList.remove('hidden');
+            document.getElementById('loading-overlay').classList.remove('hidden');
 
-            if(mesObj.extrato) {
-                preview.classList.remove('hidden');
-                if(mesObj.extrato.type.startsWith('image/')) {
-                    preview.innerHTML = `<img src="${mesObj.extrato.url}" class="max-w-full h-auto rounded-lg max-h-[500px] object-contain">`;
-                } else if (mesObj.extrato.type === 'application/pdf') {
-                    preview.innerHTML = `<iframe src="${mesObj.extrato.url}" class="w-full h-96 border-0 rounded-lg"></iframe>`;
+            try {
+                if (file.type === 'application/pdf') {
+                    await processarPDF(file);
                 } else {
-                    preview.innerHTML = `<p class="text-sm text-[var(--apple-green)] font-semibold flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Arquivo anexado.</p>`;
-                    lucide.createIcons();
+                    await processarExcel(file);
                 }
-            } else {
-                preview.classList.add('hidden');
-                preview.innerHTML = '';
+            } catch (err) {
+                showMessage("Erro", "Falha ao processar arquivo: " + err.message);
+            } finally {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                fileInput.value = ''; // Reset input
             }
-            document.getElementById('extrato-upload').value = ''; // Limpa input
         }
 
+        async function processarExcel(file) {
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let data = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(data, { type: 'array' });
+                let sheet = workbook.Sheets[workbook.SheetNames[0]];
+                let json = XLSX.utils.sheet_to_json(sheet);
+                processarDadosEstruturados(json);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function processarPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const strings = content.items.map(item => item.str);
+                fullText += strings.join(" ") + "\n";
+            }
+
+            let resultados = [];
+            const regex = /(JANEIRO|FEVEREIRO|MARÇO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)[\/\d]*\s+R\$\s*([\d\.,]+)\s+R\$\s*([\d\.,]+)/gi;
+            
+            let match;
+            while ((match = regex.exec(fullText)) !== null) {
+                resultados.push({
+                    'Mês': match[1],
+                    '✅ Entradas (Receitas)': parseMoeda(match[2]),
+                    '❌ Saídas (Despesas)': parseMoeda(match[3])
+                });
+            }
+
+            if (resultados.length > 0) {
+                processarDadosEstruturados(resultados);
+            } else {
+                throw new Error("Não foi possível identificar a tabela no PDF.");
+            }
+        }
+
+        function parseMoeda(str) {
+            if (typeof str === 'number') return str;
+            if (!str) return 0;
+            let val = str.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+            return parseFloat(val) || 0;
+        }
+
+        function processarDadosEstruturados(json) {
+            json.forEach(row => {
+                let mesRaw = row['Mês'] || row['mês'] || row['MES'];
+                if (!mesRaw) return;
+
+                let ent = parseMoeda(row['✅ Entradas (Receitas)'] || row['Entradas']);
+                let sai = parseMoeda(row['❌ Saídas (Despesas)'] || row['Saídas']);
+                
+                let idNumerico = identificarIdMes(mesRaw);
+                let mesId = 'mes-' + idNumerico;
+                
+                let existente = churchData.meses.find(m => m.id === mesId);
+                
+                if (existente) {
+                    existente.entradas = ent;
+                    existente.saidas = sai;
+                    // Se houver transações detalhadas, elas poderiam ser mescladas aqui
+                } else {
+                    churchData.meses.push({ 
+                        id: mesId, 
+                        nome: mesRaw, 
+                        entradas: ent, 
+                        saidas: sai, 
+                        transacoes: [], 
+                        detalhesSaidas: [{ categoria: "Importado", valor: sai, icon: "table" }] 
+                    });
+                }
+            });
+
+            // Ordenação decrescente por recência (2026 antes de 2025)
+            churchData.meses.sort((a, b) => {
+                let valA = parseInt(a.id.replace('mes-', ''));
+                let valB = parseInt(b.id.replace('mes-', ''));
+                let scoreA = valA + (valA < 7 ? 12 : 0);
+                let scoreB = valB + (valB < 7 ? 12 : 0);
+                return scoreB - scoreA;
+            });
+
+            calcularSaldosGlobais(); 
+            generateViewOptions(); 
+            renderTabs(); 
+            
+            if (churchData.meses.length > 0) {
+                selectTab(churchData.meses[0].id);
+            }
+            
+            showMessage("Sucesso", "Dados processados e abas atualizadas.");
+            toggleImport();
+        }
+
+        function identificarIdMes(str) {
+            const s = str.toUpperCase();
+            if (s.includes("JANEIRO")) return "1";
+            if (s.includes("FEVEREIRO")) return "2";
+            if (s.includes("MARÇO")) return "3";
+            if (s.includes("ABRIL")) return "4";
+            if (s.includes("MAIO")) return "5";
+            if (s.includes("JUNHO")) return "6";
+            if (s.includes("JULHO")) return "7";
+            if (s.includes("AGOSTO")) return "8";
+            if (s.includes("SETEMBRO")) return "9";
+            if (s.includes("OUTUBRO")) return "10";
+            if (s.includes("NOVEMBRO")) return "11";
+            if (s.includes("DEZEMBRO")) return "12";
+            return Date.now().toString();
+        }
     </script>
 </body>
 </html>
