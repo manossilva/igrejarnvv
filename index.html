@@ -95,6 +95,12 @@
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(4px);
         }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
     </style>
 </head>
 <body class="pb-12">
@@ -107,7 +113,7 @@
         </div>
     </div>
 
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 pt-10">
         
         <!-- Cabeçalho -->
         <header class="mb-6 flex justify-between items-center">
@@ -146,21 +152,37 @@
         </div>
 
         <!-- Cards Globais -->
-        <div class="grid grid-cols-2 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="apple-card flex flex-col justify-center">
                 <div class="flex items-center gap-2 mb-2 text-[#86868b]">
                     <i data-lucide="shield-check" class="w-5 h-5"></i>
-                    <span class="font-semibold text-sm uppercase tracking-wider">Fundo de Reserva</span>
+                    <span class="font-semibold text-sm uppercase tracking-wider text-xs">Valor em sobra</span>
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-bold" id="val-reserva">R$ 0,00</h2>
+                <h2 class="text-2xl font-bold" id="val-reserva">R$ 0,00</h2>
             </div>
             
             <div class="apple-card flex flex-col justify-center">
                 <div class="flex items-center gap-2 mb-2 text-[#86868b]">
                     <i data-lucide="wallet" class="w-5 h-5"></i>
-                    <span class="font-semibold text-sm uppercase tracking-wider">Em Caixa (Atual)</span>
+                    <span class="font-semibold text-sm uppercase tracking-wider text-xs">Em Caixa (Calculado)</span>
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-bold" id="val-caixa">R$ 0,00</h2>
+                <h2 class="text-2xl font-bold" id="val-caixa">R$ 0,00</h2>
+            </div>
+
+            <div class="apple-card flex flex-col justify-center relative border-2 border-transparent focus-within:border-black transition-all">
+                <div class="flex items-center justify-between gap-2 mb-2 text-[#86868b]">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="banknote" class="w-5 h-5"></i>
+                        <span class="font-semibold text-sm uppercase tracking-wider text-xs">Dinheiro em caixa</span>
+                    </div>
+                    <button onclick="focarDinheiro()" class="hover:text-black">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="flex items-baseline">
+                    <span class="text-lg font-bold mr-1">R$</span>
+                    <input type="number" id="input-dinheiro-maos" step="0.01" class="text-2xl font-bold bg-transparent w-full focus:outline-none" value="0.00" onchange="salvarDinheiroMaos()">
+                </div>
             </div>
         </div>
 
@@ -232,6 +254,7 @@
         const churchData = {
             reservaInicialBase: 1636.00,
             caixaInicialBase: 2091.39,
+            dinheiroEmMaos: 0.00,
             meses: [
                 { id: 'mes-2', nome: "Fevereiro/26", entradas: 2363.95, saidas: 1665.40, detalhesSaidas: [{ categoria: "Geral", valor: 1665.40, icon: "circle" }], transacoes: [] },
                 { id: 'mes-1', nome: "Janeiro/26", entradas: 3220.86, saidas: 3820.63, detalhesSaidas: [{ categoria: "Geral", valor: 3820.63, icon: "circle" }], transacoes: [] },
@@ -245,11 +268,20 @@
         let currentChart = null;
         let allViewOptions = [];
 
+        function focarDinheiro() {
+            document.getElementById('input-dinheiro-maos').focus();
+        }
+
+        function salvarDinheiroMaos() {
+            const input = document.getElementById('input-dinheiro-maos');
+            churchData.dinheiroEmMaos = parseFloat(input.value) || 0;
+            input.value = churchData.dinheiroEmMaos.toFixed(2);
+        }
+
         function calcularSaldosGlobais() {
             let reserva = churchData.reservaInicialBase;
             let caixa = churchData.caixaInicialBase;
             
-            // Ordem cronológica manual robusta
             const mesesOrdenados = [...churchData.meses].sort((a, b) => {
                 let valA = parseInt(a.id.replace('mes-', ''));
                 let valB = parseInt(b.id.replace('mes-', ''));
@@ -273,9 +305,7 @@
 
         function generateViewOptions() {
             allViewOptions = [];
-            // Individuais
             churchData.meses.forEach(m => allViewOptions.push({ ...m, isGroup: false, titulo: `Resumo: ${m.nome}` }));
-            // Grupos
             [2, 3, 6].forEach(count => {
                 if(churchData.meses.length < count) return;
                 let slice = churchData.meses.slice(0, count);
@@ -308,7 +338,6 @@
         }
 
         function selectTab(id) {
-            // Reset visual das abas
             document.querySelectorAll('.tab-btn').forEach(b => {
                 b.classList.remove('tab-active');
                 b.classList.add('tab-inactive');
@@ -318,7 +347,6 @@
             if (selectedBtn) {
                 selectedBtn.classList.remove('tab-inactive');
                 selectedBtn.classList.add('tab-active');
-                // Scroll suave para a aba selecionada
                 selectedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
 
@@ -396,7 +424,6 @@
             });
         }
 
-        // --- LÓGICA DE IMPORTAÇÃO ---
         function toggleImport() { document.getElementById('import-panel').classList.toggle('hidden'); }
         function showMessage(t, m) { document.getElementById('msg-title').innerText = t; document.getElementById('msg-text').innerText = m; document.getElementById('msg-modal').classList.remove('hidden'); }
         function closeMsgModal() { document.getElementById('msg-modal').classList.add('hidden'); }
@@ -405,20 +432,15 @@
             let fileInput = document.getElementById('xlsx-file');
             let file = fileInput.files[0];
             if (!file) { showMessage("Aviso", "Por favor, selecione um arquivo."); return; }
-
             document.getElementById('loading-overlay').classList.remove('hidden');
-
             try {
-                if (file.type === 'application/pdf') {
-                    await processarPDF(file);
-                } else {
-                    await processarExcel(file);
-                }
+                if (file.type === 'application/pdf') await processarPDF(file);
+                else await processarExcel(file);
             } catch (err) {
                 showMessage("Erro", "Falha ao processar arquivo: " + err.message);
             } finally {
                 document.getElementById('loading-overlay').classList.add('hidden');
-                fileInput.value = ''; // Reset input
+                fileInput.value = '';
             }
         }
 
@@ -438,31 +460,20 @@
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = "";
-
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
                 const strings = content.items.map(item => item.str);
                 fullText += strings.join(" ") + "\n";
             }
-
             let resultados = [];
             const regex = /(JANEIRO|FEVEREIRO|MARÇO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)[\/\d]*\s+R\$\s*([\d\.,]+)\s+R\$\s*([\d\.,]+)/gi;
-            
             let match;
             while ((match = regex.exec(fullText)) !== null) {
-                resultados.push({
-                    'Mês': match[1],
-                    '✅ Entradas (Receitas)': parseMoeda(match[2]),
-                    '❌ Saídas (Despesas)': parseMoeda(match[3])
-                });
+                resultados.push({ 'Mês': match[1], '✅ Entradas (Receitas)': parseMoeda(match[2]), '❌ Saídas (Despesas)': parseMoeda(match[3]) });
             }
-
-            if (resultados.length > 0) {
-                processarDadosEstruturados(resultados);
-            } else {
-                throw new Error("Não foi possível identificar a tabela no PDF.");
-            }
+            if (resultados.length > 0) processarDadosEstruturados(resultados);
+            else throw new Error("Não foi possível identificar a tabela no PDF.");
         }
 
         function parseMoeda(str) {
@@ -476,32 +487,14 @@
             json.forEach(row => {
                 let mesRaw = row['Mês'] || row['mês'] || row['MES'];
                 if (!mesRaw) return;
-
                 let ent = parseMoeda(row['✅ Entradas (Receitas)'] || row['Entradas']);
                 let sai = parseMoeda(row['❌ Saídas (Despesas)'] || row['Saídas']);
-                
                 let idNumerico = identificarIdMes(mesRaw);
                 let mesId = 'mes-' + idNumerico;
-                
                 let existente = churchData.meses.find(m => m.id === mesId);
-                
-                if (existente) {
-                    existente.entradas = ent;
-                    existente.saidas = sai;
-                    // Se houver transações detalhadas, elas poderiam ser mescladas aqui
-                } else {
-                    churchData.meses.push({ 
-                        id: mesId, 
-                        nome: mesRaw, 
-                        entradas: ent, 
-                        saidas: sai, 
-                        transacoes: [], 
-                        detalhesSaidas: [{ categoria: "Importado", valor: sai, icon: "table" }] 
-                    });
-                }
+                if (existente) { existente.entradas = ent; existente.saidas = sai; }
+                else { churchData.meses.push({ id: mesId, nome: mesRaw, entradas: ent, saidas: sai, transacoes: [], detalhesSaidas: [{ categoria: "Importado", valor: sai, icon: "table" }] }); }
             });
-
-            // Ordenação decrescente por recência (2026 antes de 2025)
             churchData.meses.sort((a, b) => {
                 let valA = parseInt(a.id.replace('mes-', ''));
                 let valB = parseInt(b.id.replace('mes-', ''));
@@ -509,16 +502,11 @@
                 let scoreB = valB + (valB < 7 ? 12 : 0);
                 return scoreB - scoreA;
             });
-
             calcularSaldosGlobais(); 
             generateViewOptions(); 
             renderTabs(); 
-            
-            if (churchData.meses.length > 0) {
-                selectTab(churchData.meses[0].id);
-            }
-            
-            showMessage("Sucesso", "Dados processados e abas atualizadas.");
+            if (churchData.meses.length > 0) selectTab(churchData.meses[0].id);
+            showMessage("Sucesso", "Dados processados.");
             toggleImport();
         }
 
@@ -538,6 +526,13 @@
             if (s.includes("DEZEMBRO")) return "12";
             return Date.now().toString();
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            calcularSaldosGlobais();
+            generateViewOptions();
+            renderTabs();
+            if(churchData.meses.length > 0) selectTab(churchData.meses[0].id);
+        });
     </script>
 </body>
 </html>
