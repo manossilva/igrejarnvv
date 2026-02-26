@@ -120,10 +120,10 @@
         <!-- Painel de Importação de Texto (Oculto por Padrão) -->
         <div id="import-panel" class="apple-card mb-8 hidden opacity-0 transition-opacity duration-300 border-2 border-dashed border-gray-300">
             <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
-                <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i> Importar Movimentações
+                <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i> Importar Múltiplos Meses
             </h3>
-            <p class="text-sm text-gray-500 mb-4">Cole o texto com as Entradas e Saídas do mês. O sistema irá ler as datas, valores e categorizar automaticamente.</p>
-            <textarea id="import-text" class="w-full p-4 border rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black" rows="6" placeholder="Exemplo:&#10;SAÍDAS DE FEVEREIRO:&#10;06/02 - R$ 69.90 - Mensalidade da Rádio&#10;&#10;ENTRADAS DE FEVEREIRO:&#10;08/02 - R$ 129.00 - Ofertas domingo"></textarea>
+            <p class="text-sm text-gray-500 mb-4">Cole o texto com as Entradas e Saídas (pode ser de vários meses juntos). O sistema vai separar por mês e evitar transações duplicadas automaticamente.</p>
+            <textarea id="import-text" class="w-full p-4 border rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black" rows="8" placeholder="Exemplo:&#10;SAÍDAS DE JANEIRO:&#10;05/01 - R$ 69.90 - Mensalidade da Rádio&#10;&#10;ENTRADAS DE JANEIRO:&#10;04/01 - R$ 151.67 - Ofertas do Domingo&#10;&#10;SAÍDAS DE FEVEREIRO:&#10;10/02 - R$ 350.00 - Aluguel da Igreja"></textarea>
             <div class="mt-4 flex justify-end gap-3">
                 <button onclick="toggleImport()" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
                 <button onclick="processarTextoUpload()" class="bg-black text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors">Processar Texto</button>
@@ -263,7 +263,7 @@
             meses: [
                 {
                     id: 'mes-2',
-                    nome: "Fevereiro/2026",
+                    nome: "Fevereiro",
                     entradas: 2363.95,
                     saidas: 1665.40,
                     transacoes: [],
@@ -278,7 +278,7 @@
                 },
                 {
                     id: 'mes-1',
-                    nome: "Janeiro/2026",
+                    nome: "Janeiro",
                     entradas: 3220.86,
                     saidas: 3920.63,
                     transacoes: [],
@@ -293,7 +293,7 @@
                 },
                 {
                     id: 'mes-12',
-                    nome: "Dezembro/2025",
+                    nome: "Dezembro",
                     entradas: 3413.65,
                     saidas: 5879.71,
                     transacoes: [],
@@ -317,8 +317,10 @@
             calcularSaldosGlobais();
             generateViewOptions();
             renderTabs();
-            // Inicia mostrando o mês mais recente (Fev/2026)
-            selectTab('mes-2');
+            // Inicia mostrando o mês mais recente
+            if(churchData.meses.length > 0) {
+                selectTab(churchData.meses[0].id);
+            }
         });
 
         // Função para calcular os saldos reais descontando da reserva
@@ -327,7 +329,15 @@
             let caixaAtual = churchData.caixaInicialBase;
 
             // Ordenar meses do mais antigo pro mais novo para cálculo progressivo
-            let mesesCalc = [...churchData.meses].reverse();
+            // Ordenação baseada no ID assumindo 'mes-X'
+            let mesesCalc = [...churchData.meses].sort((a,b) => {
+                let idA = parseInt(a.id.replace('mes-', ''));
+                let idB = parseInt(b.id.replace('mes-', ''));
+                // Gambiarra simples para ajustar o ano: assumindo que meses 8,9,10,11,12 vêm antes de 1, 2
+                if(idA > 7 && idB < 7) return -1;
+                if(idB > 7 && idA < 7) return 1;
+                return idA - idB;
+            });
 
             mesesCalc.forEach(mes => {
                 const saldo = mes.entradas - mes.saidas;
@@ -359,11 +369,11 @@
             }
         }
 
-        // Gera os dados agrupados (2, 3, 4, 5, 6 meses)
+        // Gera os dados agrupados
         function generateViewOptions() {
             allViewOptions = [];
 
-            // Adiciona Meses Individuais (na ordem original - do mais novo pro mais antigo)
+            // Adiciona Meses Individuais
             churchData.meses.forEach(m => {
                 allViewOptions.push({
                     ...m,
@@ -373,9 +383,9 @@
             });
 
             // Gera Agrupamentos
-            const groupedCounts = [2, 3, 4, 5];
+            const groupedCounts = [2, 3, 4, 5, 6];
             groupedCounts.forEach(count => {
-                if(churchData.meses.length < count) return; // Só agrupa se houver meses suficientes
+                if(churchData.meses.length < count) return; 
 
                 const mesesAgrupar = churchData.meses.slice(0, count);
                 let totalEntradas = 0;
@@ -455,6 +465,8 @@
 
             const activeData = allViewOptions.find(t => t.id === id);
             
+            if(!activeData) return;
+
             document.getElementById('titulo-periodo').innerText = activeData.titulo;
             document.getElementById('mes-entradas').innerText = formatCurrency(activeData.entradas);
             document.getElementById('mes-saidas').innerText = formatCurrency(activeData.saidas);
@@ -568,9 +580,8 @@
             lucide.createIcons();
         }
 
-        // --- FUNCIONALIDADES NOVAS (Importador / Dia a Dia / Extrato) --- //
+        // --- FUNCIONALIDADES DO IMPORTADOR INTELIGENTE --- //
 
-        // Modais (Alerts customizados)
         function showMessage(title, text) {
             const modal = document.getElementById('msg-modal');
             const content = document.getElementById('msg-modal-content');
@@ -605,11 +616,11 @@
 
         function classificarCategoria(desc) {
             const d = desc.toLowerCase();
-            if (d.includes('pastor') || d.includes('miss') || d.includes('oferta') || d.includes('dízimo') || d.includes('dizimo') || d.includes('prebenda')) return "Pastoral, Missões & Ofertas";
-            if (d.includes('aluguel') || d.includes('rádio') || d.includes('radio') || d.includes('tarifa') || d.includes('internet') || d.includes('banco')) return "Custos Fixos (Aluguel, Rádio...)";
-            if (d.includes('limpeza') || d.includes('água') || d.includes('agua') || d.includes('higiene') || d.includes('sulgipe') || d.includes('iguá') || d.includes('papel') || d.includes('detergente')) return "Limpeza, Água & Diversos";
-            if (d.includes('lanche') || d.includes('café') || d.includes('cafe') || d.includes('bolo') || d.includes('refrigerante') || d.includes('pão') || d.includes('pães') || d.includes('comida') || d.includes('almoço')) return "Alimentação & Eventos";
-            return "Infra & Equipamentos"; // Fallback genérico
+            if (d.includes('pastor') || d.includes('miss') || d.includes('oferta') || d.includes('dízimo') || d.includes('dizimo') || d.includes('prebenda') || d.includes('banca solid')) return "Pastoral, Missões & Ofertas";
+            if (d.includes('aluguel') || d.includes('rádio') || d.includes('radio') || d.includes('tarifa') || d.includes('internet') || d.includes('banco') || d.includes('vigia')) return "Custos Fixos (Aluguel, Rádio...)";
+            if (d.includes('limpeza') || d.includes('água') || d.includes('agua') || d.includes('higiene') || d.includes('sulgipe') || d.includes('iguá') || d.includes('papel') || d.includes('detergente') || d.includes('copo')) return "Limpeza, Água & Diversos";
+            if (d.includes('lanche') || d.includes('café') || d.includes('cafe') || d.includes('bolo') || d.includes('refrigerante') || d.includes('pão') || d.includes('pães') || d.includes('comida') || d.includes('almoço') || d.includes('mercado') || d.includes('padaria') || d.includes('queijo')) return "Alimentação & Eventos";
+            return "Infra & Equipamentos"; 
         }
 
         function processarTextoUpload() {
@@ -619,7 +630,7 @@
             let currentMode = null; 
             let currentMonthNum = null;
             let currentMonthName = "";
-            let transacoesLidas = [];
+            let transacoesPorMes = {}; // Agrupador de meses detectados
 
             const lines = text.split('\n');
             const monthMap = { 'JANEIRO':1, 'FEVEREIRO':2, 'MARÇO':3, 'ABRIL':4, 'MAIO':5, 'JUNHO':6, 'JULHO':7, 'AGOSTO':8, 'SETEMBRO':9, 'OUTUBRO':10, 'NOVEMBRO':11, 'DEZEMBRO':12 };
@@ -628,27 +639,35 @@
                 line = line.trim();
                 if(!line) continue;
 
-                // Detecta Sessão e Mês
-                if(line.toUpperCase().includes("ENTRADAS")) {
+                let upperLine = line.toUpperCase();
+
+                // 1. Detecta mudança de Sessão/Mês (Ex: SAÍDAS DE FEVEREIRO)
+                if(upperLine.includes("ENTRADA")) {
                     currentMode = 'entrada';
-                    for(let m in monthMap) { if(line.toUpperCase().includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
+                    for(let m in monthMap) { if(upperLine.includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
                     continue;
                 }
-                if(line.toUpperCase().includes("SAÍDAS") || line.toUpperCase().includes("SAIDAS")) {
+                if(upperLine.includes("SAÍDA") || upperLine.includes("SAIDA")) {
                     currentMode = 'saida';
-                    for(let m in monthMap) { if(line.toUpperCase().includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
+                    for(let m in monthMap) { if(upperLine.includes(m)) { currentMonthNum = monthMap[m]; currentMonthName = m; } }
                     continue;
                 }
 
-                // Match: Data - R$ Valor - Descricao
-                const regex = /^(\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?)\s*[:-]\s*R\$\s*([\d.,]+)\s*-\s*(.+)$/i;
-                const match = line.match(regex);
+                // Corrige possíveis letras O ou o digitadas no lugar de 0 nas datas
+                let cleanedLine = line;
+                if (cleanedLine.match(/^[O|o]\d[\/\.]/)) {
+                    cleanedLine = cleanedLine.replace(/^[O|o]/, '0');
+                }
+
+                // 2. Extrai a transação: Data - R$ Valor - Descricao
+                const regex = /^(\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?)\s*[:-]\s*R\$?\s*([\d.,]+)\s*-\s*(.+)$/i;
+                const match = cleanedLine.match(regex);
                 
                 if(match && currentMode) {
                     const dataStr = match[1];
                     let valorStr = match[2];
                     
-                    // Tratamento numérico (ex: 1.500,00 vs 69.90)
+                    // Conversão de moeda (1.500,00 -> 1500.00 / 69.90 -> 69.90)
                     if (valorStr.includes(',') && valorStr.includes('.')) {
                         valorStr = valorStr.replace(/\./g, '').replace(',', '.');
                     } else if (valorStr.includes(',')) {
@@ -656,43 +675,78 @@
                     } else if (valorStr.includes('.')) {
                         const parts = valorStr.split('.');
                         if(parts[1] && parts[1].length === 3) {
-                            valorStr = valorStr.replace('.', ''); // Era milhar
+                            valorStr = valorStr.replace('.', ''); // Era formato de milhar sem centavos
                         }
                     }
 
                     const valor = parseFloat(valorStr);
-                    const desc = match[3];
+                    const desc = match[3].trim();
 
-                    if(!currentMonthNum) {
+                    // Se não tiver mês pelo cabeçalho, tenta descobrir pela data da linha (ex: 15/02)
+                    let mesDaLinha = currentMonthNum;
+                    if(!mesDaLinha) {
                         const dateParts = dataStr.split(/[\/\.]/);
-                        if(dateParts.length >= 2) currentMonthNum = parseInt(dateParts[1]);
+                        if(dateParts.length >= 2) {
+                            mesDaLinha = parseInt(dateParts[1]);
+                            for(let m in monthMap) { if(monthMap[m] === mesDaLinha) currentMonthName = m; }
+                        }
                     }
 
-                    transacoesLidas.push({
-                        data: dataStr,
-                        valor: valor,
-                        descricao: desc,
-                        tipo: currentMode,
-                        categoria: currentMode === 'saida' ? classificarCategoria(desc) : "Entrada"
-                    });
+                    if(mesDaLinha && !isNaN(valor)) {
+                        if(!transacoesPorMes[mesDaLinha]) {
+                            transacoesPorMes[mesDaLinha] = {
+                                nome: currentMonthName || "Mês " + mesDaLinha,
+                                transacoes: []
+                            };
+                        }
+
+                        transacoesPorMes[mesDaLinha].transacoes.push({
+                            data: dataStr,
+                            valor: valor,
+                            descricao: desc,
+                            tipo: currentMode,
+                            categoria: currentMode === 'saida' ? classificarCategoria(desc) : "Entrada"
+                        });
+                    }
                 }
             }
 
-            if(transacoesLidas.length > 0 && currentMonthNum) {
-                integrarNovosDados(currentMonthNum, currentMonthName || "Mês " + currentMonthNum, transacoesLidas);
-                showMessage("Sucesso!", `Foram importadas ${transacoesLidas.length} movimentações para ${currentMonthName || "Mês " + currentMonthNum}.`);
+            // 3. Processar lotes detectados
+            const mesesDetectados = Object.keys(transacoesPorMes);
+            
+            if(mesesDetectados.length > 0) {
+                let totalLidas = 0;
+                
+                // Integra os dados mês a mês na memória
+                mesesDetectados.forEach(mesId => {
+                    const dadosMes = transacoesPorMes[mesId];
+                    const numLidas = integrarNovosDados(mesId, dadosMes.nome, dadosMes.transacoes);
+                    totalLidas += numLidas;
+                });
+                
+                // Só atualiza a interface uma vez no final para ficar rápido
+                calcularSaldosGlobais();
+                generateViewOptions();
+                renderTabs();
+                
+                // Abre o último mês lido
+                selectTab(`mes-${mesesDetectados[mesesDetectados.length - 1]}`);
+                
+                showMessage("Sucesso!", `Foram importadas ${totalLidas} novas movimentações distribuídas em ${mesesDetectados.length} mes(es). Transações repetidas foram ignoradas.`);
                 document.getElementById('import-text').value = '';
                 toggleImport();
+                
             } else {
                 showMessage("Atenção", "Não foi possível identificar transações. Verifique se o formato está igual aos que você costuma colar (Ex: 01/01 - R$ 10.00 - Descrição).");
             }
         }
 
-        function integrarNovosDados(mesId, mesName, transacoes) {
+        // Adiciona dados na variável da memória e recalcula categorias
+        function integrarNovosDados(mesId, mesName, novasTransacoes) {
             let mesObj = churchData.meses.find(m => m.id === `mes-${mesId}`);
             
+            // Cria o mês se ele não existir
             if(!mesObj) {
-                // Cria novo mês
                 mesObj = {
                     id: `mes-${mesId}`,
                     nome: `${mesName.charAt(0).toUpperCase() + mesName.slice(1).toLowerCase()}`,
@@ -702,19 +756,35 @@
                     extrato: null,
                     detalhesSaidas: []
                 };
-                churchData.meses.unshift(mesObj); // Adiciona no inicio
-                
-                // Reordena (assumindo que id maior é mais recente. Nota: pode falhar entre anos, ideal seria ano-mes)
-                churchData.meses.sort((a,b) => {
-                    const aId = parseInt(a.id.replace('mes-',''));
-                    const bId = parseInt(b.id.replace('mes-',''));
-                    return bId - aId;
-                });
+                churchData.meses.unshift(mesObj); 
             }
 
-            // Junta as transações e recalcula
-            mesObj.transacoes = [...(mesObj.transacoes || []), ...transacoes];
+            // Ordenação simplificada para UI
+            churchData.meses.sort((a,b) => {
+                let idA = parseInt(a.id.replace('mes-', ''));
+                let idB = parseInt(b.id.replace('mes-', ''));
+                // Gambiarra simples para ajustar a passagem de ano
+                if(idA > 7 && idB < 7) return 1;
+                if(idB > 7 && idA < 7) return -1;
+                return idB - idA;
+            });
+
+            // Adiciona prevenindo duplicatas exatas
+            let inseridas = 0;
+            novasTransacoes.forEach(nova => {
+                const isDuplicate = mesObj.transacoes.some(existente => 
+                    existente.data === nova.data && 
+                    existente.valor === nova.valor && 
+                    existente.descricao.toLowerCase() === nova.descricao.toLowerCase()
+                );
+                
+                if(!isDuplicate) {
+                    mesObj.transacoes.push(nova);
+                    inseridas++;
+                }
+            });
             
+            // Recalcula totais do mês baseado apenas na array de transações
             mesObj.entradas = 0;
             mesObj.saidas = 0;
             let catMap = {};
@@ -742,10 +812,7 @@
                 icon: iconMap[k] || "circle"
             }));
 
-            calcularSaldosGlobais();
-            generateViewOptions();
-            renderTabs();
-            selectTab(`mes-${mesId}`);
+            return inseridas; // retorna quantas novas entraram de fato
         }
 
         // Renderização do Dia a Dia
