@@ -52,7 +52,7 @@
             padding: 16px;
         }
 
-        /* Melhoria no scroll lateral dos meses */
+        /* Scroll lateral dos meses */
         .month-scroll-container::-webkit-scrollbar {
             height: 4px;
         }
@@ -79,7 +79,7 @@
         .tab-active { 
             background-color: var(--apple-black); 
             color: #ffffff;
-            transform: scale(1.05);
+            transform: scale(1.02);
         }
         .tab-inactive { 
             background-color: #e8e8ed; 
@@ -100,6 +100,17 @@
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
+        }
+
+        .editable-input {
+            background: transparent;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+        .editable-input:focus {
+            outline: none;
+            border-bottom-color: var(--apple-black);
         }
     </style>
 </head>
@@ -142,7 +153,7 @@
             <div class="flex flex-col gap-4">
                 <input type="file" id="xlsx-file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-black file:text-white hover:file:bg-gray-800 cursor-pointer" accept=".xlsx, .xls, .csv, .pdf">
                 
-                <div class="text-xs text-gray-400 italic">Dica: Você pode subir o PDF da tabela de resumo que o sistema lerá as Entradas e Saídas.</div>
+                <div class="text-xs text-gray-400 italic">Dica: Ao subir o PDF, os meses serão gerados abaixo.</div>
             </div>
 
             <div class="mt-4 flex justify-end gap-3">
@@ -151,48 +162,50 @@
             </div>
         </div>
 
-        <!-- Cards Globais -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div class="apple-card flex flex-col justify-center">
-                <div class="flex items-center gap-2 mb-2 text-[#86868b]">
-                    <i data-lucide="shield-check" class="w-5 h-5"></i>
-                    <span class="font-semibold text-sm uppercase tracking-wider text-xs">Valor em sobra</span>
-                </div>
-                <h2 class="text-2xl font-bold" id="val-reserva">R$ 0,00</h2>
-            </div>
-            
-            <div class="apple-card flex flex-col justify-center">
-                <div class="flex items-center gap-2 mb-2 text-[#86868b]">
-                    <i data-lucide="wallet" class="w-5 h-5"></i>
-                    <span class="font-semibold text-sm uppercase tracking-wider text-xs">Em Caixa (Calculado)</span>
-                </div>
-                <h2 class="text-2xl font-bold" id="val-caixa">R$ 0,00</h2>
-            </div>
-
-            <div class="apple-card flex flex-col justify-center relative border-2 border-transparent focus-within:border-black transition-all">
-                <div class="flex items-center justify-between gap-2 mb-2 text-[#86868b]">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="banknote" class="w-5 h-5"></i>
-                        <span class="font-semibold text-sm uppercase tracking-wider text-xs">Dinheiro em caixa</span>
+        <!-- Cards Globais (Editáveis) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <!-- Card Reserva -->
+            <div class="apple-card flex flex-col justify-center border-2 border-transparent focus-within:border-black transition-all">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 text-[#86868b]">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        <span class="font-semibold text-sm uppercase tracking-wider text-xs">Reserva de Emergência</span>
                     </div>
-                    <button onclick="focarDinheiro()" class="hover:text-black">
-                        <i data-lucide="edit-3" class="w-4 h-4"></i>
-                    </button>
+                    <i data-lucide="edit-3" class="w-3 h-3 text-gray-300"></i>
                 </div>
                 <div class="flex items-baseline">
-                    <span class="text-lg font-bold mr-1">R$</span>
-                    <input type="number" id="input-dinheiro-maos" step="0.01" class="text-2xl font-bold bg-transparent w-full focus:outline-none" value="0.00" onchange="salvarDinheiroMaos()">
+                    <span class="text-xl font-bold mr-1">R$</span>
+                    <input type="number" id="input-reserva" step="0.01" class="text-2xl font-bold editable-input" value="0.00" onchange="atualizarValoresIniciais()">
                 </div>
+                <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Valor atual em mãos</p>
+            </div>
+            
+            <!-- Card Caixa -->
+            <div class="apple-card flex flex-col justify-center border-2 border-transparent focus-within:border-black transition-all">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 text-[#86868b]">
+                        <i data-lucide="wallet" class="w-5 h-5"></i>
+                        <span class="font-semibold text-sm uppercase tracking-wider text-xs">Saldo em Caixa</span>
+                    </div>
+                    <i data-lucide="edit-3" class="w-3 h-3 text-gray-300"></i>
+                </div>
+                <div class="flex items-baseline">
+                    <span class="text-xl font-bold mr-1">R$</span>
+                    <input type="number" id="input-caixa" step="0.01" class="text-2xl font-bold editable-input" value="0.00" onchange="atualizarValoresIniciais()">
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Valor atual em mãos</p>
             </div>
         </div>
 
         <!-- Seletor de Período -->
         <div class="mb-6 overflow-hidden">
-            <div class="flex gap-3 overflow-x-auto month-scroll-container pb-4 items-center" id="month-tabs"></div>
+            <div class="flex gap-3 overflow-x-auto month-scroll-container pb-4 items-center" id="month-tabs">
+                <p class="text-sm text-gray-400 italic px-4">Aguardando importação de dados...</p>
+            </div>
         </div>
 
         <!-- Conteúdo -->
-        <div id="month-content">
+        <div id="month-content" class="hidden">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-bold" id="titulo-periodo">Resumo</h2>
             </div>
@@ -207,7 +220,7 @@
                     <p class="text-xl font-bold text-black" id="mes-saidas">R$ 0,00</p>
                 </div>
                 <div class="apple-card-small bg-black text-white" id="card-saldo">
-                    <p class="text-xs text-gray-300 font-semibold uppercase mb-1">Resultado</p>
+                    <p class="text-xs text-gray-300 font-semibold uppercase mb-1">Resultado do Mês</p>
                     <p class="text-xl font-bold" id="mes-saldo">R$ 0,00</p>
                 </div>
             </div>
@@ -233,6 +246,16 @@
                 <div id="lista-transacoes" class="space-y-1"></div>
             </div>
         </div>
+        
+        <!-- Estado Vazio -->
+        <div id="empty-state" class="py-20 text-center apple-card">
+            <div class="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="file-text" class="text-gray-400"></i>
+            </div>
+            <h3 class="text-lg font-bold">Nenhum dado processado</h3>
+            <p class="text-gray-500 text-sm max-w-xs mx-auto mt-2">Suba o seu PDF ou Excel de fechamento mensal para começar a visualizar o histórico e os gráficos.</p>
+            <button onclick="toggleImport()" class="mt-6 bg-black text-white px-6 py-2 rounded-full text-sm font-semibold">Começar Agora</button>
+        </div>
     </div>
 
     <!-- Modal Avisos -->
@@ -251,68 +274,63 @@
 
         const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+        // Estado inicial zerado
         const churchData = {
-            reservaInicialBase: 1636.00,
-            caixaInicialBase: 2091.39,
-            dinheiroEmMaos: 0.00,
-            meses: [
-                { id: 'mes-2', nome: "Fevereiro/26", entradas: 2363.95, saidas: 1665.40, detalhesSaidas: [{ categoria: "Geral", valor: 1665.40, icon: "circle" }], transacoes: [] },
-                { id: 'mes-1', nome: "Janeiro/26", entradas: 3220.86, saidas: 3820.63, detalhesSaidas: [{ categoria: "Geral", valor: 3820.63, icon: "circle" }], transacoes: [] },
-                { id: 'mes-12', nome: "Dezembro/25", entradas: 3413.65, saidas: 5879.71, detalhesSaidas: [{ categoria: "Geral", valor: 5879.71, icon: "circle" }], transacoes: [] },
-                { id: 'mes-11', nome: "Novembro/25", entradas: 5729.67, saidas: 3197.01, detalhesSaidas: [{ categoria: "Geral", valor: 3197.01, icon: "circle" }], transacoes: [] },
-                { id: 'mes-10', nome: "Outubro/25", entradas: 4552.16, saidas: 5915.41, detalhesSaidas: [{ categoria: "Geral", valor: 5915.41, icon: "circle" }], transacoes: [] },
-                { id: 'mes-9', nome: "Setembro/25", entradas: 2626.96, saidas: 4274.90, detalhesSaidas: [{ categoria: "Geral", valor: 4274.90, icon: "circle" }], transacoes: [] }
-            ]
+            reservaInicialBase: 0.00,
+            caixaInicialBase: 0.00,
+            meses: [] // Memória limpa para começar do zero
         };
 
         let currentChart = null;
         let allViewOptions = [];
 
-        function focarDinheiro() {
-            document.getElementById('input-dinheiro-maos').focus();
+        function atualizarValoresIniciais() {
+            const resInput = document.getElementById('input-reserva');
+            const caxInput = document.getElementById('input-caixa');
+            
+            churchData.reservaInicialBase = parseFloat(resInput.value) || 0;
+            churchData.caixaInicialBase = parseFloat(caxInput.value) || 0;
+            
+            // Re-renderiza se houver dados
+            if (churchData.meses.length > 0) {
+                renderizarInterface();
+            }
         }
 
-        function salvarDinheiroMaos() {
-            const input = document.getElementById('input-dinheiro-maos');
-            churchData.dinheiroEmMaos = parseFloat(input.value) || 0;
-            input.value = churchData.dinheiroEmMaos.toFixed(2);
-        }
-
-        function calcularSaldosGlobais() {
-            let reserva = churchData.reservaInicialBase;
-            let caixa = churchData.caixaInicialBase;
-            
-            const mesesOrdenados = [...churchData.meses].sort((a, b) => {
-                let valA = parseInt(a.id.replace('mes-', ''));
-                let valB = parseInt(b.id.replace('mes-', ''));
-                let scoreA = valA + (valA < 7 ? 12 : 0);
-                let scoreB = valB + (valB < 7 ? 12 : 0);
-                return scoreA - scoreB;
-            });
-            
-            mesesOrdenados.forEach(m => {
-                let saldo = m.entradas - m.saidas;
-                if(saldo < 0) {
-                    let deficit = Math.abs(saldo);
-                    if(reserva >= deficit) reserva -= deficit;
-                    else { caixa -= (deficit - reserva); reserva = 0; }
-                } else caixa += saldo;
-            });
-
-            document.getElementById('val-reserva').innerText = formatCurrency(reserva);
-            document.getElementById('val-caixa').innerText = formatCurrency(caixa);
+        function renderizarInterface() {
+            generateViewOptions();
+            renderTabs();
+            // Seleciona a primeira aba disponível (ou a ativa se possível)
+            if (allViewOptions.length > 0) {
+                const activeTab = document.querySelector('.tab-active');
+                const idToSelect = activeTab ? activeTab.id.replace('tab-btn-', '') : allViewOptions[0].id;
+                selectTab(idToSelect);
+                
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('month-content').classList.remove('hidden');
+            }
         }
 
         function generateViewOptions() {
             allViewOptions = [];
+            
+            // Meses Individuais
             churchData.meses.forEach(m => allViewOptions.push({ ...m, isGroup: false, titulo: `Resumo: ${m.nome}` }));
-            [2, 3, 6].forEach(count => {
-                if(churchData.meses.length < count) return;
-                let slice = churchData.meses.slice(0, count);
-                let ent = slice.reduce((a, b) => a + b.entradas, 0);
-                let sai = slice.reduce((a, b) => a + b.saidas, 0);
-                allViewOptions.push({ id: `grupo-${count}`, nome: `Últimos ${count} Meses`, entradas: ent, saidas: sai, isGroup: true, titulo: `Consolidado ${count} Meses`, detalhesSaidas: [{ categoria: "Total", valor: sai, icon: "list" }] });
-            });
+            
+            // Consolidado total se houver mais de 1 mês
+            if (churchData.meses.length > 1) {
+                let ent = churchData.meses.reduce((a, b) => a + b.entradas, 0);
+                let sai = churchData.meses.reduce((a, b) => a + b.saidas, 0);
+                allViewOptions.push({ 
+                    id: `consolidado-total`, 
+                    nome: `Geral (Acumulado)`, 
+                    entradas: ent, 
+                    saidas: sai, 
+                    isGroup: true, 
+                    titulo: `Saldo Acumulado de ${churchData.meses.length} Meses`, 
+                    detalhesSaidas: [{ categoria: "Total Despesas", valor: sai, icon: "list" }] 
+                });
+            }
         }
 
         function renderTabs() {
@@ -347,7 +365,6 @@
             if (selectedBtn) {
                 selectedBtn.classList.remove('tab-inactive');
                 selectedBtn.classList.add('tab-active');
-                selectedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
 
             let data = allViewOptions.find(t => t.id === id);
@@ -424,6 +441,7 @@
             });
         }
 
+        // --- LÓGICA DE IMPORTAÇÃO ---
         function toggleImport() { document.getElementById('import-panel').classList.toggle('hidden'); }
         function showMessage(t, m) { document.getElementById('msg-title').innerText = t; document.getElementById('msg-text').innerText = m; document.getElementById('msg-modal').classList.remove('hidden'); }
         function closeMsgModal() { document.getElementById('msg-modal').classList.add('hidden'); }
@@ -432,10 +450,15 @@
             let fileInput = document.getElementById('xlsx-file');
             let file = fileInput.files[0];
             if (!file) { showMessage("Aviso", "Por favor, selecione um arquivo."); return; }
+
             document.getElementById('loading-overlay').classList.remove('hidden');
+
             try {
-                if (file.type === 'application/pdf') await processarPDF(file);
-                else await processarExcel(file);
+                if (file.type === 'application/pdf') {
+                    await processarPDF(file);
+                } else {
+                    await processarExcel(file);
+                }
             } catch (err) {
                 showMessage("Erro", "Falha ao processar arquivo: " + err.message);
             } finally {
@@ -460,20 +483,30 @@
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = "";
+
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
                 const strings = content.items.map(item => item.str);
                 fullText += strings.join(" ") + "\n";
             }
-            let resultados = [];
+
             const regex = /(JANEIRO|FEVEREIRO|MARÇO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)[\/\d]*\s+R\$\s*([\d\.,]+)\s+R\$\s*([\d\.,]+)/gi;
+            let resultados = [];
             let match;
             while ((match = regex.exec(fullText)) !== null) {
-                resultados.push({ 'Mês': match[1], '✅ Entradas (Receitas)': parseMoeda(match[2]), '❌ Saídas (Despesas)': parseMoeda(match[3]) });
+                resultados.push({
+                    'Mês': match[1],
+                    '✅ Entradas (Receitas)': parseMoeda(match[2]),
+                    '❌ Saídas (Despesas)': parseMoeda(match[3])
+                });
             }
-            if (resultados.length > 0) processarDadosEstruturados(resultados);
-            else throw new Error("Não foi possível identificar a tabela no PDF.");
+
+            if (resultados.length > 0) {
+                processarDadosEstruturados(resultados);
+            } else {
+                throw new Error("Tabela de resumo não encontrada no PDF.");
+            }
         }
 
         function parseMoeda(str) {
@@ -483,55 +516,67 @@
             return parseFloat(val) || 0;
         }
 
+        function identificarIdMes(str) {
+            const s = str.toUpperCase();
+            if (s.includes("JANEIRO")) return 1;
+            if (s.includes("FEVEREIRO")) return 2;
+            if (s.includes("MARÇO")) return 3;
+            if (s.includes("ABRIL")) return 4;
+            if (s.includes("MAIO")) return 5;
+            if (s.includes("JUNHO")) return 6;
+            if (s.includes("JULHO")) return 7;
+            if (s.includes("AGOSTO")) return 8;
+            if (s.includes("SETEMBRO")) return 9;
+            if (s.includes("OUTUBRO")) return 10;
+            if (s.includes("NOVEMBRO")) return 11;
+            if (s.includes("DEZEMBRO")) return 12;
+            return 99;
+        }
+
         function processarDadosEstruturados(json) {
             json.forEach(row => {
                 let mesRaw = row['Mês'] || row['mês'] || row['MES'];
                 if (!mesRaw) return;
+
                 let ent = parseMoeda(row['✅ Entradas (Receitas)'] || row['Entradas']);
                 let sai = parseMoeda(row['❌ Saídas (Despesas)'] || row['Saídas']);
-                let idNumerico = identificarIdMes(mesRaw);
-                let mesId = 'mes-' + idNumerico;
+                
+                let mesId = 'mes-' + identificarIdMes(mesRaw);
                 let existente = churchData.meses.find(m => m.id === mesId);
-                if (existente) { existente.entradas = ent; existente.saidas = sai; }
-                else { churchData.meses.push({ id: mesId, nome: mesRaw, entradas: ent, saidas: sai, transacoes: [], detalhesSaidas: [{ categoria: "Importado", valor: sai, icon: "table" }] }); }
+                
+                if (existente) {
+                    existente.entradas = ent;
+                    existente.saidas = sai;
+                } else {
+                    churchData.meses.push({ 
+                        id: mesId, 
+                        nome: mesRaw, 
+                        entradas: ent, 
+                        saidas: sai, 
+                        transacoes: [], 
+                        detalhesSaidas: [{ categoria: "Geral (Importado)", valor: sai, icon: "table" }] 
+                    });
+                }
             });
+
+            // Ordena os meses por ID (considerando virada de ano simples 8-12 / 1-7)
             churchData.meses.sort((a, b) => {
-                let valA = parseInt(a.id.replace('mes-', ''));
-                let valB = parseInt(b.id.replace('mes-', ''));
-                let scoreA = valA + (valA < 7 ? 12 : 0);
-                let scoreB = valB + (valB < 7 ? 12 : 0);
+                let idA = parseInt(a.id.replace('mes-', ''));
+                let idB = parseInt(b.id.replace('mes-', ''));
+                let scoreA = idA + (idA < 8 ? 12 : 0);
+                let scoreB = idB + (idB < 8 ? 12 : 0);
                 return scoreB - scoreA;
             });
-            calcularSaldosGlobais(); 
-            generateViewOptions(); 
-            renderTabs(); 
-            if (churchData.meses.length > 0) selectTab(churchData.meses[0].id);
-            showMessage("Sucesso", "Dados processados.");
+
+            renderizarInterface();
+            showMessage("Sucesso", "Dados importados e histórico gerado.");
             toggleImport();
         }
 
-        function identificarIdMes(str) {
-            const s = str.toUpperCase();
-            if (s.includes("JANEIRO")) return "1";
-            if (s.includes("FEVEREIRO")) return "2";
-            if (s.includes("MARÇO")) return "3";
-            if (s.includes("ABRIL")) return "4";
-            if (s.includes("MAIO")) return "5";
-            if (s.includes("JUNHO")) return "6";
-            if (s.includes("JULHO")) return "7";
-            if (s.includes("AGOSTO")) return "8";
-            if (s.includes("SETEMBRO")) return "9";
-            if (s.includes("OUTUBRO")) return "10";
-            if (s.includes("NOVEMBRO")) return "11";
-            if (s.includes("DEZEMBRO")) return "12";
-            return Date.now().toString();
-        }
-
+        // Inicialização básica
         document.addEventListener('DOMContentLoaded', () => {
-            calcularSaldosGlobais();
-            generateViewOptions();
-            renderTabs();
-            if(churchData.meses.length > 0) selectTab(churchData.meses[0].id);
+            lucide.createIcons();
+            // Começa vazio
         });
     </script>
 </body>
